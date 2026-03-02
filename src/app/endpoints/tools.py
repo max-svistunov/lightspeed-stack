@@ -29,6 +29,39 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["tools"])
 
 
+def _input_schema_to_parameters(
+    schema: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Convert a JSON Schema input_schema to a flat list of parameter dicts.
+
+    The Llama Stack SDK returns tool parameters as a JSON Schema object
+    (``input_schema``).  This function converts that representation into
+    the flat parameter list format used by the tools endpoint response.
+
+    Parameters:
+        schema: JSON Schema dict with ``properties`` and ``required`` keys,
+                or ``None`` if the tool has no parameters.
+
+    Returns:
+        A list of parameter dicts, each containing ``name``, ``description``,
+        ``parameter_type``, ``required``, and ``default`` keys.
+    """
+    if not schema or "properties" not in schema:
+        return []
+
+    required_params = set(schema.get("required", []))
+    return [
+        {
+            "name": name,
+            "description": prop.get("description", ""),
+            "parameter_type": prop.get("type", "string"),
+            "required": name in required_params,
+            "default": prop.get("default"),
+        }
+        for name, prop in schema["properties"].items()
+    ]
+
+
 tools_responses: dict[int | str, dict[str, Any]] = {
     200: ToolsResponse.openapi_response(),
     401: UnauthorizedResponse.openapi_response(
@@ -119,6 +152,19 @@ async def tools_endpoint_handler(  # pylint: disable=too-many-locals,too-many-st
 
         for tool in tools_response:
             tool_dict = dict(tool)
+
+            # Normalize Llama Stack ToolDef field names to the endpoint's
+            # response format ('name' -> 'identifier', 'input_schema' -> 'parameters')
+            if "name" in tool_dict and "identifier" not in tool_dict:
+                tool_dict["identifier"] = tool_dict.pop("name")
+            if "input_schema" in tool_dict and "parameters" not in tool_dict:
+                tool_dict["parameters"] = _input_schema_to_parameters(
+                    tool_dict.pop("input_schema")
+                )
+
+            # Propagate toolgroup-level fields to individual tools
+            tool_dict.setdefault("provider_id", toolgroup.provider_id)
+            tool_dict.setdefault("type", getattr(toolgroup, "type", None) or "tool")
 
             # Determine server source based on toolgroup type
             if toolgroup.identifier in mcp_server_names:
