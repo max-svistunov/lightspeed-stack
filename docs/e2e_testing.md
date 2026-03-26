@@ -190,6 +190,11 @@ All tag behaviour is implemented in **`features/environment.py`**: the hooks (`b
 | `@RHIdentity`                   | Feature-level: use RH identity config; restore in after_feature.                                                                                        |
 | `@Feedback`                     | Feature-level: set feedback conversation list; after_feature deletes those conversations.                                                               |
 | `@MCP`                          | Feature-level: use MCP config; restore in after_feature.                                                                                                |
+| `@Proxy`                        | Feature-level: proxy networking tests. Starts test proxies (tunnel/interception) and configures the stack to route through them.                        |
+| `@TunnelProxy`                  | Scenario-level: uses a tunnel proxy (HTTP CONNECT) for the test.                                                                                        |
+| `@InterceptionProxy`            | Scenario-level: uses a TLS-intercepting proxy with trustme CA for the test.                                                                             |
+| `@TLSProfile`                   | Scenario-level: configures a TLS security profile for outgoing connections.                                                                              |
+| `@NegativeProxy`                | Scenario-level: tests failure cases (unreachable proxy, wrong CA, etc.).                                                                                 |
 
 
 ### Multiple Tags and Skip Comment
