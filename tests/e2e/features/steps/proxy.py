@@ -61,13 +61,13 @@ def _restart_lightspeed_stack(config_path: str) -> None:
     env = os.environ.copy()
     env["OPENSSL_CONF"] = ""  # Workaround for OpenSSL 3.5.x init issues
     log_path = "/tmp/lightspeed-stack-proxy-test.log"
-    log_file = open(log_path, "w")
-    subprocess.Popen(
-        ["uv", "run", "src/lightspeed_stack.py", "-c", config_path],
-        env=env,
-        stdout=log_file,
-        stderr=log_file,
-    )
+    with open(log_path, "w") as log_file:
+        subprocess.Popen(
+            ["uv", "run", "src/lightspeed_stack.py", "-c", config_path],
+            env=env,
+            stdout=log_file,
+            stderr=log_file,
+        )
 
     # Wait for readiness
     for i in range(30):

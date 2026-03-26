@@ -84,10 +84,6 @@ _CONFIG_PATHS = {
         "tests/e2e/configuration/{mode_dir}/lightspeed-stack-no-mcp.yaml",
         "tests/e2e-prow/rhoai/configs/lightspeed-stack-no-mcp.yaml",
     ),
-    "proxy": (
-        "tests/e2e/configuration/{mode_dir}/lightspeed-stack-proxy.yaml",
-        "tests/e2e-prow/rhoai/configs/lightspeed-stack-proxy.yaml",
-    ),
 }
 
 
