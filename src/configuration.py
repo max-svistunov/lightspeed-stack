@@ -24,6 +24,7 @@ from models.config import (
     InferenceConfiguration,
     LlamaStackConfiguration,
     ModelContextProtocolServer,
+    NetworkingConfiguration,
     OkpConfiguration,
     QuotaHandlersConfiguration,
     RagConfiguration,
@@ -419,6 +420,13 @@ class AppConfig:  # pylint: disable=too-many-public-methods
         if self._configuration is None:
             raise LogicError("logic error: configuration is not loaded")
         return self._configuration.splunk
+
+    @property
+    def networking(self) -> Optional[NetworkingConfiguration]:
+        """Return networking configuration, or None if not provided."""
+        if self._configuration is None:
+            raise LogicError("logic error: configuration is not loaded")
+        return self._configuration.networking
 
     @property
     def deployment_environment(self) -> str:
