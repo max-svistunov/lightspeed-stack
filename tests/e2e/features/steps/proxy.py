@@ -21,9 +21,21 @@ def _get_default_config_path(context: Context) -> str:
 
 
 def _load_config(config_path: str) -> dict:
-    """Load a YAML config file."""
+    """Load a YAML config file, overriding hostnames for local testing."""
     with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+
+    # Override Llama Stack URL with environment variable for local testing
+    llama_host = os.getenv("E2E_LLAMA_HOSTNAME", "localhost")
+    llama_port = os.getenv("E2E_LLAMA_PORT", "8321")
+    llama_url = os.getenv("E2E_LLAMA_STACK_URL", f"http://{llama_host}:{llama_port}")
+    if "llama_stack" in config:
+        config["llama_stack"]["url"] = llama_url
+
+    # Strip MCP servers for proxy tests (they use Docker hostnames)
+    config.pop("mcp_servers", None)
+
+    return config
 
 
 def _write_config(config: dict, path: str) -> None:
@@ -47,11 +59,14 @@ def _restart_lightspeed_stack(config_path: str) -> None:
 
     # Start with new config
     env = os.environ.copy()
+    env["OPENSSL_CONF"] = ""  # Workaround for OpenSSL 3.5.x init issues
+    log_path = "/tmp/lightspeed-stack-proxy-test.log"
+    log_file = open(log_path, "w")
     subprocess.Popen(
         ["uv", "run", "src/lightspeed_stack.py", "-c", config_path],
         env=env,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_file,
+        stderr=log_file,
     )
 
     # Wait for readiness
