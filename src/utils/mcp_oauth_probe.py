@@ -94,7 +94,7 @@ async def probe_mcp(
     try:
         networking_config = app_cfg.networking
         connector = build_aiohttp_connector(networking_config)
-        proxy = get_aiohttp_proxy(networking_config)
+        proxy = get_aiohttp_proxy(networking_config, target_url=url)
         timeout = aiohttp.ClientTimeout(total=10)
         async with aiohttp.ClientSession(
             timeout=timeout, connector=connector

@@ -78,7 +78,7 @@ async def send_splunk_event(event: dict[str, Any], sourcetype: str) -> None:
     else:
         connector = aiohttp.TCPConnector(ssl=splunk_config.verify_ssl)
 
-    proxy = get_aiohttp_proxy(networking_config)
+    proxy = get_aiohttp_proxy(networking_config, target_url=splunk_config.url)
 
     try:
         async with aiohttp.ClientSession(

@@ -47,7 +47,7 @@ async def get_jwk_set(url: str) -> KeySet:
     """
     networking_config = app_configuration.networking
     connector = build_aiohttp_connector(networking_config)
-    proxy = get_aiohttp_proxy(networking_config)
+    proxy = get_aiohttp_proxy(networking_config, target_url=url)
 
     async with _jwk_cache_lock:
         if url not in _jwk_cache:

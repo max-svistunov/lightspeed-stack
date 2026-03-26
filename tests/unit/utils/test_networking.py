@@ -11,6 +11,8 @@ from models.config import (
     TLSSecurityProfile,
 )
 from utils.networking import (
+    _host_matches_no_proxy,
+    _parse_no_proxy,
     build_aiohttp_connector,
     build_httpx_client,
     get_aiohttp_proxy,
@@ -118,3 +120,78 @@ class TestGetAiohttpProxy:
             proxy=ProxyConfiguration(http_proxy="http://http-proxy:8080")
         )
         assert get_aiohttp_proxy(nc) == "http://http-proxy:8080"
+
+    def test_no_proxy_bypasses_matching_host(self) -> None:
+        """Test that no_proxy bypasses matching target URLs."""
+        nc = NetworkingConfiguration(
+            proxy=ProxyConfiguration(
+                https_proxy="http://proxy:8080",
+                no_proxy="localhost,127.0.0.1",
+            )
+        )
+        assert get_aiohttp_proxy(nc, target_url="http://localhost:8321") is None
+        assert get_aiohttp_proxy(nc, target_url="http://127.0.0.1:8321") is None
+
+    def test_no_proxy_allows_non_matching_host(self) -> None:
+        """Test that non-matching hosts still use the proxy."""
+        nc = NetworkingConfiguration(
+            proxy=ProxyConfiguration(
+                https_proxy="http://proxy:8080",
+                no_proxy="localhost",
+            )
+        )
+        assert (
+            get_aiohttp_proxy(nc, target_url="https://api.openai.com")
+            == "http://proxy:8080"
+        )
+
+    def test_no_proxy_domain_suffix(self) -> None:
+        """Test that .domain patterns match subdomains."""
+        nc = NetworkingConfiguration(
+            proxy=ProxyConfiguration(
+                https_proxy="http://proxy:8080",
+                no_proxy=".internal.corp",
+            )
+        )
+        assert get_aiohttp_proxy(nc, target_url="https://api.internal.corp") is None
+        assert (
+            get_aiohttp_proxy(nc, target_url="https://external.com")
+            == "http://proxy:8080"
+        )
+
+
+class TestParseNoProxy:
+    """Tests for _parse_no_proxy function."""
+
+    def test_splits_comma_separated(self) -> None:
+        """Test basic comma splitting."""
+        assert _parse_no_proxy("a,b,c") == ["a", "b", "c"]
+
+    def test_strips_whitespace(self) -> None:
+        """Test whitespace is stripped."""
+        assert _parse_no_proxy(" a , b , c ") == ["a", "b", "c"]
+
+    def test_empty_string(self) -> None:
+        """Test empty string returns empty list."""
+        assert _parse_no_proxy("") == []
+
+
+class TestHostMatchesNoProxy:
+    """Tests for _host_matches_no_proxy function."""
+
+    def test_exact_match(self) -> None:
+        """Test exact hostname match."""
+        assert _host_matches_no_proxy("localhost", ["localhost"]) is True
+
+    def test_no_match(self) -> None:
+        """Test non-matching hostname."""
+        assert _host_matches_no_proxy("external.com", ["localhost"]) is False
+
+    def test_wildcard_matches_all(self) -> None:
+        """Test that * matches everything."""
+        assert _host_matches_no_proxy("anything.com", ["*"]) is True
+
+    def test_dot_prefix_matches_subdomains(self) -> None:
+        """Test that .domain matches subdomains."""
+        assert _host_matches_no_proxy("sub.corp.com", [".corp.com"]) is True
+        assert _host_matches_no_proxy("corp.com", [".corp.com"]) is False
