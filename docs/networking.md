@@ -41,7 +41,7 @@ networking:
 | Field | Type | Description |
 |-------|------|-------------|
 | `http_proxy` | string | Proxy URL for HTTP connections |
-| `https_proxy` | string | Proxy URL for HTTPS connections (typically the same as http_proxy) |
+| `https_proxy` | string | Proxy URL for HTTPS connections. When both are set, `https_proxy` is used for all connections |
 | `no_proxy` | string | Comma-separated list of hostnames/IPs to bypass |
 
 When the `proxy` section is not configured, the underlying HTTP libraries
@@ -168,10 +168,11 @@ If `certificate_directory` is not set, the merged bundle is written to
 `/tmp` (a warning is logged). For production, set an explicit directory.
 
 The `extra_ca` list and the `caCertPath` field in `tls_security_profile`
-serve different purposes: `extra_ca` adds CAs to the system trust store,
-while `caCertPath` replaces the trust store entirely. When both are set,
-`extra_ca` takes precedence (the merged bundle includes all system CAs
-plus the extra ones).
+serve different purposes: `extra_ca` creates a merged bundle combining
+the system trust store with your additional CAs, while `caCertPath` adds
+a single CA certificate to the SSL context's trust store. When both are
+set, `extra_ca` takes precedence (the merged bundle includes all system
+CAs plus the extra ones).
 
 | Field | Type | Description |
 |-------|------|-------------|

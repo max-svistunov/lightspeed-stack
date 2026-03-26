@@ -71,11 +71,9 @@ async def send_splunk_event(event: dict[str, Any], sourcetype: str) -> None:
     timeout = aiohttp.ClientTimeout(total=splunk_config.timeout)
     networking_config = configuration.networking
 
-    # Use networking config for TLS if available, fall back to
-    # Splunk's own verify_ssl setting for backward compatibility
-    if networking_config and (
-        networking_config.tls_security_profile or networking_config.extra_ca
-    ):
+    # Use networking config for TLS/CA when any networking customization
+    # is present; fall back to Splunk's verify_ssl for backward compatibility
+    if networking_config is not None:
         connector = build_aiohttp_connector(networking_config)
     else:
         connector = aiohttp.TCPConnector(ssl=splunk_config.verify_ssl)

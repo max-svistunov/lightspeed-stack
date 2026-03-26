@@ -238,6 +238,12 @@ def build_aiohttp_connector(
         )
         return aiohttp.TCPConnector(ssl=ssl_ctx)
 
+    # extra_ca without a TLS profile — load the merged CA bundle into a
+    # default SSLContext so aiohttp consumers trust the extra CAs
+    if ca_cert_path is not None:
+        ssl_ctx = ssl.create_default_context(cafile=str(ca_cert_path))
+        return aiohttp.TCPConnector(ssl=ssl_ctx)
+
     return aiohttp.TCPConnector()
 
 
