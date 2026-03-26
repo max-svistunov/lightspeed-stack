@@ -49,6 +49,28 @@ When the `proxy` section is not configured, the underlying HTTP libraries
 `NO_PROXY` environment variables. When proxy settings are explicitly
 configured, they take precedence over environment variables.
 
+### no_proxy Bypass
+
+The `no_proxy` field controls which hosts bypass the proxy. It supports:
+
+- **Exact hostnames**: `localhost`, `my-server`
+- **IP addresses**: `127.0.0.1`, `10.0.0.1`
+- **Domain suffixes** (leading dot): `.internal.corp` matches
+  `api.internal.corp` but not `internal.corp` itself
+- **Wildcard**: `*` bypasses all hosts (effectively disables the proxy)
+
+Example:
+
+```yaml
+networking:
+  proxy:
+    https_proxy: http://proxy:8080
+    no_proxy: localhost,127.0.0.1,.internal.corp,llama-stack
+```
+
+This routes external traffic through the proxy while keeping local and
+internal connections direct.
+
 ### Tunnel Proxy vs. Interception Proxy
 
 **Tunnel proxy** (HTTP CONNECT): The proxy creates a TCP tunnel to the
@@ -136,9 +158,20 @@ networking:
   certificate_directory: /var/lib/lightspeed/certs
 ```
 
-The Lightspeed Stack merges these certificates with the system trust store
-(certifi bundle) into a single CA bundle file. Duplicate certificates are
-detected and skipped.
+At startup, the Lightspeed Stack merges these certificates with the system
+trust store (certifi bundle) into a single CA bundle file. The merged bundle
+is used for all outgoing HTTPS connections. Duplicate certificates are
+detected and skipped. Malformed certificate files are logged and skipped
+without preventing startup.
+
+If `certificate_directory` is not set, the merged bundle is written to
+`/tmp` (a warning is logged). For production, set an explicit directory.
+
+The `extra_ca` list and the `caCertPath` field in `tls_security_profile`
+serve different purposes: `extra_ca` adds CAs to the system trust store,
+while `caCertPath` replaces the trust store entirely. When both are set,
+`extra_ca` takes precedence (the merged bundle includes all system CAs
+plus the extra ones).
 
 | Field | Type | Description |
 |-------|------|-------------|

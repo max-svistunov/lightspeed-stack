@@ -77,7 +77,13 @@ def _resolve_ca_cert_path(networking: NetworkingConfiguration) -> Optional[Path]
         Path to the CA certificate file to use, or None for system default.
     """
     if networking.extra_ca:
-        cert_dir = networking.certificate_directory or Path("/tmp")
+        cert_dir = networking.certificate_directory
+        if cert_dir is None:
+            cert_dir = Path("/tmp")
+            logger.warning(
+                "No certificate_directory configured; using /tmp for CA bundle. "
+                "Set networking.certificate_directory for a persistent location."
+            )
         bundle_path = generate_ca_bundle(networking.extra_ca, cert_dir)
         if bundle_path is not None:
             logger.info("Using merged CA bundle: %s", bundle_path)
