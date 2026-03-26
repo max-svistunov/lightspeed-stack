@@ -1,0 +1,26 @@
+name: Lightspeed Core Service (LCS) - Proxy test
+service:
+  host: 0.0.0.0
+  port: 8080
+  auth_enabled: false
+  workers: 1
+  color_log: true
+  access_log: true
+llama_stack:
+  use_as_library_client: false
+  url: http://llama-stack:8321
+  api_key: xyzzy
+networking:
+  proxy:
+    https_proxy: http://127.0.0.1:8888
+    no_proxy: localhost,127.0.0.1
+  tls_security_profile:
+    type: IntermediateType
+user_data_collection:
+  feedback_enabled: false
+  transcripts_enabled: false
+authentication:
+  module: "noop"
+inference:
+  default_provider: openai
+  default_model: gpt-4o-mini

@@ -116,6 +116,14 @@
 * Check if models can be filtered
 * Check if filtering can return empty list of models
 
+## [`proxy.feature`](https://github.com/lightspeed-core/lightspeed-stack/blob/main/tests/e2e/features/proxy.feature)
+
+* Traffic is routed through a configured tunnel proxy
+* Interception proxy works with correct CA certificate
+* TLS security profile is applied to outgoing connections
+* ModernType TLS profile enforces TLS 1.3
+* Connection fails when proxy is unreachable
+
 ## [`query.feature`](https://github.com/lightspeed-core/lightspeed-stack/blob/main/tests/e2e/features/query.feature)
 
 * Check if LLM responds properly to restrictive system prompt to sent question with different system prompt
