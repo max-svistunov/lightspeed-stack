@@ -60,6 +60,8 @@ Lightspeed Core Stack (LCS) is an AI powered assistant that provides answers to 
 
 ## Other features
 
+[Networking (proxy, TLS, certificates)](https://lightspeed-core.github.io/lightspeed-stack/networking.html)
+
 [Providers](https://lightspeed-core.github.io/lightspeed-stack/providers.html)
 
 [User data collection](https://lightspeed-core.github.io/lightspeed-stack/user_data_collection.html)

@@ -18,12 +18,14 @@ from fastapi import HTTPException, Request
 
 from authentication.interface import AuthInterface, AuthTuple
 from authentication.utils import extract_user_token
+from configuration import configuration as app_configuration
 from constants import (
     DEFAULT_VIRTUAL_PATH,
 )
 from log import get_logger
 from models.config import JwkConfiguration
 from models.responses import UnauthorizedResponse
+from utils.networking import build_aiohttp_connector, get_aiohttp_proxy
 
 logger = get_logger(__name__)
 
@@ -43,11 +45,14 @@ async def get_jwk_set(url: str) -> KeySet:
     Returns:
         KeySet: The JWK `KeySet` corresponding to the URL.
     """
+    networking_config = app_configuration.networking
+    connector = build_aiohttp_connector(networking_config)
+    proxy = get_aiohttp_proxy(networking_config, target_url=url)
+
     async with _jwk_cache_lock:
         if url not in _jwk_cache:
-            async with aiohttp.ClientSession() as session:
-                # TODO(omertuc): handle connection errors, timeouts, etc.
-                async with session.get(url) as resp:
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(url, proxy=proxy) as resp:
                     resp.raise_for_status()
                     _jwk_cache[url] = JsonWebKey.import_key_set(await resp.json())
         return _jwk_cache[url]

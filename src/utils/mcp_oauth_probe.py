@@ -12,9 +12,11 @@ from fastapi import HTTPException
 
 import constants
 from configuration import AppConfig
+from configuration import configuration as app_cfg
 from log import get_logger
 from models.responses import UnauthorizedResponse
 from utils.mcp_headers import McpHeaders
+from utils.networking import build_aiohttp_connector, get_aiohttp_proxy
 
 logger = get_logger(__name__)
 
@@ -90,9 +92,14 @@ async def probe_mcp(
         {"authorization": authorization} if authorization is not None else None
     )
     try:
+        networking_config = app_cfg.networking
+        connector = build_aiohttp_connector(networking_config)
+        proxy = get_aiohttp_proxy(networking_config, target_url=url)
         timeout = aiohttp.ClientTimeout(total=10)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, headers=headers) as resp:
+        async with aiohttp.ClientSession(
+            timeout=timeout, connector=connector
+        ) as session:
+            async with session.get(url, headers=headers, proxy=proxy) as resp:
                 if resp.status != 401:
                     return
                 www_auth = resp.headers.get("WWW-Authenticate")

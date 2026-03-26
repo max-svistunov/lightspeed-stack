@@ -7,6 +7,11 @@ import aiohttp
 import pytest
 from pytest_mock import MockerFixture
 
+from models.config import (
+    NetworkingConfiguration,
+    ProxyConfiguration,
+    TLSSecurityProfile,
+)
 from observability.splunk import _read_token_from_file, send_splunk_event
 
 
@@ -161,3 +166,63 @@ async def test_logs_warning_on_error(
     await send_splunk_event({"test": "event"}, "test_sourcetype")
 
     mock_logger.warning.assert_called()
+
+
+class TestSplunkNetworkingIntegration:
+    """Tests for Splunk networking config integration."""
+
+    @pytest.mark.asyncio
+    async def test_uses_networking_connector_when_tls_profile_set(
+        self, mocker: MockerFixture, mock_splunk_config: Any, mock_session: Any
+    ) -> None:
+        """Test that TLS profile triggers networking connector."""
+        mock_config = mocker.patch("observability.splunk.configuration")
+        mock_config.splunk = mock_splunk_config
+        mock_config.networking = NetworkingConfiguration(
+            tls_security_profile=TLSSecurityProfile(profile_type="ModernType")
+        )
+        mock_build = mocker.patch("observability.splunk.build_aiohttp_connector")
+        mock_build.return_value = aiohttp.TCPConnector()
+        mocker.patch("observability.splunk.get_aiohttp_proxy", return_value=None)
+        mock_client = mocker.patch("observability.splunk.aiohttp.ClientSession")
+        mock_client.return_value.__aenter__.return_value = mock_session
+
+        await send_splunk_event({"test": "event"}, "test")
+
+        mock_build.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_uses_verify_ssl_when_no_networking(
+        self, mocker: MockerFixture, mock_splunk_config: Any, mock_session: Any
+    ) -> None:
+        """Test backward compatibility: verify_ssl used when no networking config."""
+        mock_config = mocker.patch("observability.splunk.configuration")
+        mock_config.splunk = mock_splunk_config
+        mock_config.networking = None
+        mock_build = mocker.patch("observability.splunk.build_aiohttp_connector")
+        mock_client = mocker.patch("observability.splunk.aiohttp.ClientSession")
+        mock_client.return_value.__aenter__.return_value = mock_session
+
+        await send_splunk_event({"test": "event"}, "test")
+
+        mock_build.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_uses_networking_connector_when_networking_present(
+        self, mocker: MockerFixture, mock_splunk_config: Any, mock_session: Any
+    ) -> None:
+        """Test that any networking config triggers networking connector."""
+        mock_config = mocker.patch("observability.splunk.configuration")
+        mock_config.splunk = mock_splunk_config
+        mock_config.networking = NetworkingConfiguration(
+            proxy=ProxyConfiguration(https_proxy="http://proxy:8080")
+        )
+        mock_build = mocker.patch("observability.splunk.build_aiohttp_connector")
+        mock_build.return_value = aiohttp.TCPConnector()
+        mocker.patch("observability.splunk.get_aiohttp_proxy", return_value=None)
+        mock_client = mocker.patch("observability.splunk.aiohttp.ClientSession")
+        mock_client.return_value.__aenter__.return_value = mock_session
+
+        await send_splunk_event({"test": "event"}, "test")
+
+        mock_build.assert_called_once()

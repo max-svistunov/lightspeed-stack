@@ -124,6 +124,7 @@ LCore requires two main configuration files:
 
 1. **LCore Configuration** (`lightspeed-stack.yaml`):
    - Service settings (host, port, logging, CORS)
+   - Networking (proxy, TLS security profiles, custom CA certificates)
    - Authentication and authorization methods
    - Database connections (user DB, cache, quota, A2A)
    - MCP server endpoints and credentials

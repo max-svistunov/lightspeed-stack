@@ -8,6 +8,7 @@ import aiohttp
 
 from configuration import configuration
 from log import get_logger
+from utils.networking import build_aiohttp_connector, get_aiohttp_proxy
 from version import __version__
 
 logger = get_logger(__name__)
@@ -68,14 +69,23 @@ async def send_splunk_event(event: dict[str, Any], sourcetype: str) -> None:
     }
 
     timeout = aiohttp.ClientTimeout(total=splunk_config.timeout)
-    connector = aiohttp.TCPConnector(ssl=splunk_config.verify_ssl)
+    networking_config = configuration.networking
+
+    # Use networking config for TLS/CA when any networking customization
+    # is present; fall back to Splunk's verify_ssl for backward compatibility
+    if networking_config is not None:
+        connector = build_aiohttp_connector(networking_config)
+    else:
+        connector = aiohttp.TCPConnector(ssl=splunk_config.verify_ssl)
+
+    proxy = get_aiohttp_proxy(networking_config, target_url=splunk_config.url)
 
     try:
         async with aiohttp.ClientSession(
             timeout=timeout, connector=connector
         ) as session:
             async with session.post(
-                splunk_config.url, json=payload, headers=headers
+                splunk_config.url, json=payload, headers=headers, proxy=proxy
             ) as response:
                 if response.status >= 400:
                     body = await response.text()

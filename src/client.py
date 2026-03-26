@@ -15,6 +15,7 @@ from llama_stack_configuration import YamlDumper, enrich_byok_rag, enrich_solr
 from log import get_logger
 from models.config import LlamaStackConfiguration
 from models.responses import ServiceUnavailableResponse
+from utils.networking import build_httpx_client
 from utils.types import Singleton
 
 logger = get_logger(__name__)
@@ -69,8 +70,16 @@ class AsyncLlamaStackClientHolder(metaclass=Singleton):
         api_key = config.api_key.get_secret_value() if config.api_key else None
         # Convert AnyHttpUrl to string for the client
         base_url = str(config.url) if config.url else None
+
+        # Build custom httpx client with proxy/TLS from networking config
+        networking_config = configuration.networking
+        http_client = build_httpx_client(networking_config)
+
         self._lsc = AsyncLlamaStackClient(
-            base_url=base_url, api_key=api_key, timeout=config.timeout
+            base_url=base_url,
+            api_key=api_key,
+            timeout=config.timeout,
+            http_client=http_client,
         )
 
     def _enrich_library_config(self, input_config_path: str) -> str:
