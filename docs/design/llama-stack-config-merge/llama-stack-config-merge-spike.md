@@ -619,7 +619,7 @@ rebuild time was impractical.
 
 ### Results
 
-See [poc-evidence/library-mode/](poc-evidence/library-mode/) for the full
+See [poc-results/library-mode/](poc-results/library-mode/) for the full
 evidence bundle:
 
 - `lightspeed-stack-unified-library.yaml` — the unified-mode config used
@@ -826,7 +826,7 @@ export OPENAI_API_KEY=<your-key>
 export E2E_OPENAI_MODEL=gpt-4o-mini
 mkdir -p /tmp/lcore-836-poc
 uv run lightspeed-stack \
-  -c docs/design/llama-stack-config-merge/poc-evidence/lightspeed-stack-unified-library.yaml
+  -c docs/design/llama-stack-config-merge/poc-results/lightspeed-stack-unified-library.yaml
 
 # 2. In another shell — query
 curl -s http://localhost:8080/liveness

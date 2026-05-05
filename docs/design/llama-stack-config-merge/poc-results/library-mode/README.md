@@ -4,7 +4,7 @@ Command:
 ```bash
 export OPENAI_API_KEY=<redacted>
 export E2E_OPENAI_MODEL=gpt-4o-mini
-uv run lightspeed-stack -c docs/design/llama-stack-config-merge/poc-evidence/lightspeed-stack-unified-library.yaml
+uv run lightspeed-stack -c docs/design/llama-stack-config-merge/poc-results/lightspeed-stack-unified-library.yaml
 ```
 
 ## What the unified config does
