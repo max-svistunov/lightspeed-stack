@@ -1,0 +1,31 @@
+# Feature design — personal overrides (example)
+# =============================================================================
+#
+# Copy this file to `.feature-design.config.local` (gitignored) and override
+# any setting from `docs/contributing/feature-design.config`. Keys you don't
+# set fall through to the team policy.
+#
+# Suitable per-dev overrides include:
+#   - pr_template_output_path  (where you keep PR-body drafts)
+#   - default_poc_ambition     (some prefer minimal, some ambitious)
+#   - decision_presentation_cadence  (some prefer everything per_decision)
+#   - confidence_format        (numeric vs qualitative preference)
+#
+# Settings you should NOT override here (they're conventions, not preferences):
+#   - feature_dir, *_filename, jira_dir_path, ticket_placeholder_format
+#   - require_e2e_kickoff_jira, require_e2e_step_definitions_jira
+#   - default_strategic_reviewer, default_technical_reviewer
+#   - any include_*_section setting that's part of the team's doc shape
+
+# Example: keep PR-body drafts in your home dir instead of /tmp.
+# pr_template_output_path = ~/work/pr-drafts/{prefix}-{ticket}-pr.txt
+
+# Example: prefer to be asked at every decision (strategic + technical)
+# rather than batching technical decisions.
+# decision_presentation_cadence = per_decision
+
+# Example: use qualitative confidence labels instead of percentages.
+# confidence_format = qualitative
+
+# Example: less ambitious PoCs by default.
+# default_poc_ambition = moderate

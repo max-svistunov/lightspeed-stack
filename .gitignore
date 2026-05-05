@@ -197,3 +197,5 @@ local-run.yaml
 
 # Sisyphus planning files
 .sisyphus/
+# Per-developer feature design overrides (see docs/contributing/feature-design.config)
+.feature-design.config.local
