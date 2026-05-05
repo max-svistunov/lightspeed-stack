@@ -152,6 +152,12 @@ automate parts of the process.  The underlying skill definitions are in
 5. **Update spike doc with filed ticket numbers** — replace `LCORE-????`
    placeholders with actual ticket keys.
 
+6. **Finalize after merge** (`/spike-finalize`) — once the spike+spec PR is
+   merged, run the finalize skill: it verifies the spike doc and spec doc
+   don't drift, checks for orphan `LCORE-????` references, and reminds you
+   to create Google Docs versions of the spike and spec docs for wider
+   team consumption.
+
 If the feature is well-understood and doesn't need research, skip step 1 and
 start at step 2.
 
@@ -159,6 +165,12 @@ Templates for all of the above are in
 [docs/contributing/templates/](contributing/templates/).  If a PoC is part of
 the spike, see
 [how to organize PoC output](contributing/howto-organize-poc-output.md).
+
+**Configuration**: team-policy conventions for the feature design process
+live in [`docs/contributing/feature-design.config`](contributing/feature-design.config).
+Personal overrides go in `.feature-design.config.local` at the repo root
+(gitignored). Skills (`/spike`, `/spec-doc`, `/spike-finalize`) read both
+at the start of each session and announce which files were loaded.
 
 **CLI tools** (work without Claude Code):
 - `dev-tools/fetch-jira.sh <ticket>` — fetch JIRA ticket content and child issues

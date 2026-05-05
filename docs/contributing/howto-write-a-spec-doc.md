@@ -6,6 +6,13 @@ JIRAs reference it.  Agentic coding tools read it for guidance.
 
 **Claude Code shortcut**: `/spec-doc` creates one interactively.
 
+## Configuration
+
+Team-policy conventions for the spec doc shape (which sections are required,
+which are `if_applicable`, etc.) live in
+[`feature-design.config`](feature-design.config). Personal overrides go in
+`.feature-design.config.local` at the repo root (gitignored).
+
 ## When to write one
 
 - As part of a spike (see [howto-run-a-spike.md](howto-run-a-spike.md), step 6).
@@ -33,15 +40,30 @@ easy to provide clear acceptance criteria.
 
 **Architecture**: Flow diagram, then subsections for each component.  Include
 where things live (file paths), function signatures, schemas, configuration.
+Architecture sub-sections marked `if_applicable` in
+[`feature-design.config`](feature-design.config) (Trigger mechanism, Storage
+/ data model, API changes, etc.) are present only when the feature actually
+has the concern. Delete unused sub-sections.
+
+**Acceptance test surface**: Maps each requirement (R1..Rn) to an observable
+behavior. This section drives the e2e-kickoff JIRA's feature files: the
+person writing `.feature` files reads this section to author Gherkin
+scenarios.
+
+**Aspect-specific concerns**: Sections like Latency and Cost, Observability,
+Capacity planning, Failure modes, Security considerations,
+Migration / backwards compatibility, Telemetry / data privacy, Feature
+flags / rollout, Runbook / oncall, Internationalization, API versioning,
+Rate limiting / quotas. All `if_applicable` — include only when the
+feature genuinely has the concern. Delete sub-sections that don't apply.
 
 **Implementation Suggestions**: File paths, insertion points, code patterns,
 test patterns.  Be specific — this section is read by both humans and agentic
 coding tools.
 
-**Latency and Cost**: How the feature affects performance.  Include if
-applicable to the feature.
-
-**Open Questions**: Things explicitly deferred, and why.
+**Open Questions**: Things explicitly deferred, and why.  Each item must
+trace back to its origin (a spike decision, a PoC finding, or a reviewer
+comment) so the rationale survives over time.
 
 **Changelog**: Record significant changes after initial creation.  Date, what
 changed, why.

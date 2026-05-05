@@ -43,19 +43,23 @@ TODO: Flow diagram showing the request/response path with the new feature.
 TODO: flow diagram
 ```
 
-TODO: Add subsections below for each relevant component. Delete any that don't apply, add feature-specific ones.
+TODO: Add subsections below for each relevant component. Architecture
+sub-sections marked `if_applicable` in
+`docs/contributing/feature-design.config` should be present only when the
+feature actually has that concern. Delete unused sub-sections; add
+feature-specific ones.
 
 ### Trigger mechanism
 
-TODO: When and how the feature activates.
+REMOVE IF NOT APPLICABLE. When and how the feature activates.
 
 ### Storage / data model changes
 
-TODO: Schema changes, which backends need updates.
+REMOVE IF NOT APPLICABLE. Schema changes, which backends need updates.
 
 ### Configuration
 
-TODO: YAML config example and configuration class.
+REMOVE IF NOT APPLICABLE. YAML config example and configuration class.
 
 ``` yaml
 TODO: config example
@@ -67,19 +71,79 @@ TODO: configuration class
 
 ### API changes
 
-TODO: New or changed fields in request/response models.
+REMOVE IF NOT APPLICABLE. New or changed fields in request/response models.
 
 ### Error handling
 
-TODO: How errors are surfaced — new error types, HTTP status codes, recovery behavior.
+REMOVE IF NOT APPLICABLE. How errors are surfaced — new error types, HTTP status codes, recovery behavior.
 
 ### Security considerations
 
-TODO: Auth, access control, data sensitivity implications. Remove if not applicable.
+REMOVE IF NOT APPLICABLE. Auth, access control, data sensitivity implications.
 
 ### Migration / backwards compatibility
 
-TODO: Schema migrations, API versioning, feature flags for gradual rollout. Remove if not applicable.
+REMOVE IF NOT APPLICABLE. Schema migrations, API versioning, feature flags for gradual rollout.
+
+## Acceptance test surface
+
+Maps each requirement (R1..Rn) to one or more observable behaviors. This
+section is the source-of-truth that drives the e2e-kickoff JIRA's feature
+files. Authors of `.feature` files read this section to write Gherkin
+scenarios.
+
+| Req | Observable behavior | Verified by |
+|-----|---------------------|-------------|
+| R1  | TODO                | TODO        |
+
+## Aspect-specific concerns
+
+REMOVE ANY SUB-SECTION THAT DOES NOT APPLY. These sections cover concerns
+that may or may not be relevant to a given feature. The defaults in
+`docs/contributing/feature-design.config` are `if_applicable` — include
+only when the feature genuinely has the concern.
+
+### Latency and Cost
+
+How the feature affects per-request performance and cost.
+
+### Observability
+
+What is logged, what is measured, what is traced. New dashboards / alerts.
+
+### Capacity planning
+
+How much load the feature handles before degrading; what scaling decisions
+are tied to it.
+
+### Failure modes
+
+Non-obvious ways the feature can fail, and what happens when it does.
+
+### Telemetry / data privacy
+
+What data is collected, where it goes, how user privacy is preserved.
+
+### Feature flags / rollout
+
+Gradual rollout strategy if this feature lands behind a flag.
+
+### Runbook / oncall implications
+
+What oncall needs to know; new alerts, new failure modes, recovery
+procedures.
+
+### Internationalization
+
+i18n / l10n implications, if any.
+
+### API versioning
+
+If the feature changes a public API, how the version bump is handled.
+
+### Rate limiting / quotas
+
+If the feature introduces or interacts with rate limits or quotas.
 
 ## Implementation Suggestions
 
@@ -115,10 +179,12 @@ TODO: Describe any feature-specific test considerations (e.g., tests that need a
 
 ## Open Questions for Future Work
 
-TODO: Things explicitly deferred and why.
+Things explicitly deferred and why. **Each item must trace back to its
+origin**: a spike decision, a PoC finding, or a reviewer comment, so that
+the rationale survives over time.
 
-- TODO
-- TODO
+- TODO: question — origin (e.g., "Deferred from spike Decision T7" or
+  "Surfaced during PoC, blocked on external dependency on TODO")
 
 ## Changelog
 

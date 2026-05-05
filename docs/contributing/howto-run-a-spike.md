@@ -8,6 +8,14 @@ project.
 also use `/spike LCORE-1234` or `/spike 1234` (defaults to LCORE) to have
 Claude Code fetch the respective JIRA ticket using `dev-tools/fetch-jira.sh`.
 
+## Configuration
+
+Team-policy conventions for the feature design process live in
+[`feature-design.config`](feature-design.config). Personal overrides go in
+`.feature-design.config.local` at the repo root (gitignored). Skills
+(including `/spike`) read both at the start of each session and announce
+which files were loaded.
+
 ## Outputs
 
 A spike produces:
@@ -86,13 +94,31 @@ Key principles:
 - **Decisions up front, background below.**  The first sections should be the
   decisions that need confirmation.  Background (current architecture, API
   research, etc.) goes in later sections and is linked from the decisions.
-- **Split decisions by audience.**  Strategic decisions (approach, model,
-  threshold strategy) go in a section for the decision-makers and relevant
-  stakeholders.  Technical decisions (storage schema, field naming, buffer
-  calculation) go in a section for the tech lead and relevant team members.
-- **Proposed JIRAs** follow the decisions.  Each JIRA should have: Description,
-  Scope, Acceptance Criteria, and an Agentic tool instruction pointing to the
-  spec doc.  Use [jira-ticket-template.md](templates/jira-ticket-template.md).
+- **Split decisions by audience.**  The template provides three audience
+  sections: **Strategic** (PM/owner — approach, scope, deprecation timeline),
+  **Technical** (tech lead — schema, merge semantics, secrets handling),
+  and **Stakeholder** (the team that requested the feature, if any —
+  decisions only they are positioned to make). The Stakeholder section is
+  `if_applicable` per [`feature-design.config`](feature-design.config); add
+  it when the feature originated from a named team, remove it otherwise.
+- **State confidence per recommendation.** Each recommendation includes a
+  confidence value (numeric or qualitative per
+  [`feature-design.config`](feature-design.config)). Reviewers prioritize
+  attention based on it.
+- **Out-of-scope section is required.** What this spike deliberately does
+  not address. Each item explains why and (where possible) names the
+  follow-up ticket.
+- **Proposed JIRAs** follow the decisions.  Each JIRA should have:
+  Description, Scope, Acceptance Criteria, and an Agentic tool instruction
+  pointing to the spec doc.  Use
+  [jira-ticket-template.md](templates/jira-ticket-template.md).
+- **The first proposed JIRA is the e2e kickoff Story** — write the behave
+  `.feature` files for the feature, no step implementation. This kicks off
+  the work *before* implementation lands so the test shape isn't shaped by
+  the implementation. The counterpart Task (implement step definitions,
+  blocked by the kickoff and the implementation tickets) is also included
+  by default. Both are stubs in the spike-template; remove only with
+  documented rationale in the Out-of-scope section.
 
 ### 6. Write the spec doc
 
@@ -182,6 +208,18 @@ The spike doc stays in the repo because it records decision rationale, PoC
 evidence, and the design space explored — context that the spec doc doesn't
 capture.
 
+### 11. Finalize after merge
+
+Run `/spike-finalize` (Claude Code shortcut) after the spike PR is merged:
+
+- Verify spike doc and spec doc don't drift.
+- Check for any orphan `LCORE-????` references that should be replaced
+  with filed ticket keys.
+- Prompt to create Google Docs versions of the spike and/or spec docs for
+  team-wide reading (controlled by
+  `remind_about_google_doc_after_merge` in
+  [`feature-design.config`](feature-design.config)).
+
 ## Checklist
 
 ```
@@ -190,11 +228,15 @@ capture.
 [ ] Existing approaches researched
 [ ] Design alternatives documented with pros/cons
 [ ] PoC built and validated (if applicable)
-[ ] Spike doc written (decisions up front, background below)
+[ ] Spike doc written (decisions up front, background below, audience split)
+[ ] Confidence stated per recommendation
+[ ] Out-of-scope section present
+[ ] E2E kickoff JIRA + step-definitions counterpart included as proposed JIRAs
 [ ] Spec doc written (with accepted recommendations)
 [ ] PR opened with structured reviewer asks
 [ ] Reviewer feedback incorporated
 [ ] JIRAs filed under parent ticket
 [ ] PoC code and experiment data removed before merge
 [ ] Spike doc and spec doc remain in merge
+[ ] /spike-finalize run after merge
 ```
