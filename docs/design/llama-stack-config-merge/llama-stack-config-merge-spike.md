@@ -9,7 +9,12 @@ This split increases the chance of misconfiguration, makes downstream
 deployment templates larger, and forces every Lightspeed team to understand
 Llama Stack's internal schema. LCORE-836 asks for a single source of truth.
 
-**The recommendation**: A layered approach — "Option C + Option E layer":
+**The recommendation**: A layered approach — Option C (high-level keys +
+`native_override` escape hatch) as the base structure, with Option D
+(profiles) enabled as an optional layer on top. See
+[Design options A–E](#design-options-ae) for the short names of each
+option and [Design alternatives considered](#design-alternatives-considered)
+for the scoring.
 
 - **High-level keys** in `lightspeed-stack.yaml` under a new `llama_stack.config`
   section (inference, later storage/safety/...). Most downstream teams write
@@ -29,9 +34,9 @@ Llama Stack's internal schema. LCORE-836 asks for a single source of truth.
   single-file config from an existing (`run.yaml` + `lightspeed-stack.yaml`)
   pair, lossless round-trip.
 
-**PoC validation**: A Level 3' PoC (per the spike howto) proves the mechanism
-end-to-end in library mode. A unified `lightspeed-stack.yaml` containing only
-`llama_stack.config` (no external `run.yaml`) successfully drives LCORE:
+**PoC validation**: A library-mode PoC proves the mechanism end-to-end.
+A unified `lightspeed-stack.yaml` containing only `llama_stack.config`
+(no external `run.yaml`) successfully drives LCORE:
 liveness/readiness green, `/v1/query` returns a real model response,
 `native_override` demonstrably takes effect. Full unit-test suite passes
 (2098 tests), including a lossless migrate-then-synthesize round-trip.
@@ -42,54 +47,68 @@ library-mode PoC and unit tests.
 
 ---
 
+## Design options A–E
+
+- **A (Embedded native)** — `llama_stack.config` is the raw Llama Stack
+  schema, verbatim. Same surface area downstream teams see today, just
+  moved into one file. No abstraction win.
+- **B (High-level only)** — `llama_stack.config` exposes only LCORE-defined
+  high-level keys (e.g. `inference.providers`). Best UX when every operator
+  intent maps cleanly; painful at the edges where the high-level schema
+  doesn't yet cover a need (no escape hatch).
+- **C (B + `native_override`)** — high-level keys for the common path, plus
+  a raw-LS `native_override` block deep-merged last as an escape hatch.
+  Combines B's UX with A's flexibility. **Recommended (Decision S1).**
+- **D (Profiles)** — a user-authored YAML file pointed to by
+  `llama_stack.config.profile: <path>`, used as the synthesis baseline
+  instead of LCORE's built-in default. A composable *layer* on top of
+  A/B/C, not a standalone shape. LCORE ships the mechanism; downstream
+  teams (or operators) author the YAML.
+- **E (Kustomize-style patches)** — ship a default baseline; the operator
+  writes JSON-Patch-like overlays against it. Viable alternative to C;
+  strongest for backward compat with existing `run.yaml` files, weakest
+  on validation rigor and dynamic-reconfig fit.
+
+---
+
 ## Strategic decisions — for @sbunciak (PM) and @tisnik
 
 These set scope, approach, and rollout shape. Each has a recommendation —
 please confirm or override.
 
-### Decision S1: Overall shape (Option C + optional Option E)
+### Decision S1: Overall shape
 
-See [Design alternatives considered](#design-alternatives-considered) for the
-full option set and scoring.
+See [Design alternatives considered](#design-alternatives-considered)
+for the scoring.
 
-| Option | Summary |
+| Option | Standalone shape |
 |---|---|
-| A (Embedded native only) | `lightspeed-stack.yaml.llama_stack.config` is raw Llama Stack schema |
-| **B + C (High-level + native override)** | High-level keys cover the common path, `native_override` as escape hatch |
-| E (Profiles) | Named or path-based pre-built config bundles, layered on top of A/B/C |
-| G (Kustomize-style patches) | Ship a default baseline, operator writes JSON-Patch-like overlays |
+| A (Embedded native) | `llama_stack.config` is raw LS schema, verbatim |
+| B (High-level only) | LCORE-defined high-level keys; no escape hatch |
+| **C (B + `native_override`)** | High-level keys + raw-LS escape hatch |
+| E (Kustomize-style patches) | Default baseline + JSON-Patch-like overlays |
 
-**Recommendation**: **C** (high-level + native_override) with **E** (profile
-feature, no shipped profiles) as an optional layer. Best balance of UX,
-escape-hatch power, validation rigor, and dynamic-reconfig fit for the
-broader feature roadmap (LCORE-777/781).
+D is not listed because it's a layer that composes on top of any of
+A/B/C/E, not a standalone shape — the decision on whether to enable that
+layer is Decision T6.
+
+**Recommendation**: **C** as the base structure, with **D** enabled as
+an optional layer (feature only, no shipped profiles — see Decision T6).
+Best balance of UX, escape-hatch power, validation rigor, and
+dynamic-reconfig fit for the broader feature roadmap (LCORE-777/781).
 
 ### Decision S2: Deprecation timeline for the legacy path
 
-Legacy mode (`llama_stack.library_client_config_path` + external `run.yaml`)
-must coexist with unified mode through a deprecation window to avoid breaking
-downstream teams. Three candidate cadences:
-
-| Cadence | Timing |
-|---|---|
-| N+2 releases | Opt-in → warning → removed over two releases after landing |
-| N+3 releases | Opt-in → warning (N+1) → removed at N+3 |
-| **Calendar-based** | e.g., "removed no sooner than 6 months after warning starts" |
-
-**Recommendation**: **calendar-based**, because the right number depends on
-LCORE's release cadence and downstream consumers' update latency — both of
-which the spike author does not own. @sbunciak to set the actual numbers.
+**Recommendation**: deprecate the legacy two-file path fully by end of Q4;
+emit startup deprecation warnings during Q3 and Q4. @sbunciak to confirm
+or override the calendar.
 
 ### Decision S3: Downstream implications we may not have seen
 
-The spike author has direct evidence of Konflux/Tekton usage (`.tekton/` dir)
-and RHOAI testing (`tests/e2e-prow/rhoai/`). Other downstream consumers —
-RHOAI operator CRs, Helm charts, Kustomize overlays, any other products —
-are not visible from this repo alone.
-
-**Ask**: Reviewers from downstream teams to confirm whether their deployment
-setup treats `run.yaml` as a separate artifact (ConfigMap, templated file,
-build-time asset) that this design would need to accommodate.
+**Ask**: do we need to account for anything apart from Konflux?
+Reviewers from downstream teams should flag any deployment surface that
+treats `run.yaml` as a separate artifact (ConfigMap, templated file,
+build-time asset) that the unified design would need to accommodate.
 
 ### Decision S4: Scope of this spike — what is deliberately left out
 
@@ -191,7 +210,7 @@ companion `migrate_config_dumb()` function. Confidence: 90%.
 
 ### Decision T6: Profile distribution
 
-How profiles (Option E layer) reach downstream teams:
+How profiles (Option D layer) reach downstream teams:
 
 | Option | Details |
 |---|---|
@@ -205,35 +224,35 @@ documentation, not shipped runtime assets. Confidence: 85%.
 
 ### Decision T7: The `baseline` field (added during PoC)
 
-During the PoC, strict lossless round-trip for the migration tool surfaced
-a need: when `native_override` contains an entire run.yaml body, the default
-baseline's keys still leak into the result via deep-merge. Fix: a
-`baseline: "default" | "empty"` field.
+The migration tool must be lossless: migrate an existing `run.yaml` into a
+unified config, then synthesize it back to a `run.yaml`, and the result
+must match the original byte-for-byte. The PoC surfaced a leak: when
+`native_override` contains the entire `run.yaml` body, LCORE's built-in
+baseline still deep-merges underneath and adds keys that weren't in the
+original. Fix: a `baseline: "default" | "empty"` field that lets the
+caller pick the synthesis starting point.
 
-- `baseline: default` (default value) — start from LCORE's built-in baseline
-- `baseline: empty` — start from `{}`. Used by the dumb migration tool so
-  round-trip is exact.
+- `baseline: default` (default value) — start from LCORE's built-in baseline.
+- `baseline: empty` — start from `{}`. Used by the dumb migration tool, so
+  that `native_override` is the only thing the synthesizer sees.
 
-**Recommendation**: **accept this field**. Alternatives (`inherit_defaults:
-bool`, `starting_point: ...`) are cosmetic. Confidence: 80%. Reviewers: any
-preference on naming before this ships?
+**Recommendation**: **accept this field, with `default` as the default value**.
+That preserves the zero-config "fresh user authors `llama_stack.config` and
+gets a working LS baseline" UX; the migration tool sets `baseline: empty`
+explicitly so the migrate-then-synthesize loop above matches the original
+`run.yaml`. Alternatives (`inherit_defaults: bool`, `starting_point: ...`)
+are cosmetic. Confidence: 80%.
 
-### Decision T8: Konflux / Tekton pipelines
+### Decision T8: Konflux pipelines — for @radofuchs
 
-The `.tekton/` directory exists in this repo. If any Konflux/Tekton pipeline
-templates or mounts `run.yaml` separately, unified mode needs that pipeline
-to either (a) keep using legacy mode during the deprecation window, or
-(b) mount the unified `lightspeed-stack.yaml` and drop the `run.yaml` mount.
+The `.tekton/` directory in this repo holds Konflux build-pipeline
+definitions. If any pipeline template mounts `run.yaml` separately, unified
+mode needs that pipeline to either (a) keep using legacy mode during the
+deprecation window, or (b) mount the unified `lightspeed-stack.yaml` and
+drop the `run.yaml` mount.
 
-**Ask**: owner of `.tekton/` to confirm current pipeline shape and plan
+**Ask**: @radofuchs to confirm current Konflux pipeline shape and plan
 migration.
-
-### Decision T9: Library client API (resolved by PoC)
-
-**Finding from PoC**: `AsyncLlamaStackAsLibraryClient` in `llama-stack` only
-accepts a file-path string. It does not accept a dict. This means library
-mode must write the synthesized config to disk — no dict-only shortcut
-available. Not a decision; a fact to note in the spec doc.
 
 ---
 
@@ -596,8 +615,8 @@ To verify: run LCORE with a legacy config; confirm WARN line; run with unified c
 
 ### What the PoC does
 
-The PoC is at Level 3' (per the spike howto): unified config works
-end-to-end in library mode, with overrides and a profile. Server-mode
+The PoC proves the mechanism end-to-end in library mode: a unified config
+works with `native_override` and a `profile:` baseline. Server-mode
 end-to-end validation was skipped — same synthesis code path, container
 rebuild time was impractical.
 
@@ -606,25 +625,35 @@ rebuild time was impractical.
 - Uses `$TMPDIR` for the synthesized `run.yaml` instead of the persistent
   known path recommended in Decision T4.
 - No `--synthesized-config-output` CLI flag yet.
-- Migration tool has only the "dumb" mode; "smart" factoring into
-  high-level keys is out of scope.
+- The migration tool ships only the "dumb" mode (lift the whole `run.yaml`
+  into `native_override`). The "smart" mode that factors an existing
+  `run.yaml` into high-level keys is deliberately deferred to future work;
+  it is captured under the spec doc's "Open Questions for Future Work" and
+  is not part of the proposed implementation JIRAs.
 - No deprecation warning yet (that's its own JIRA).
-- High-level inference's emitted `provider_id` uses the Literal value
-  directly (`sentence_transformers` with underscore), which differs from
-  the baseline's `sentence-transformers` (hyphen). Acceptable in the PoC
-  because the validation used `baseline: default` + a `native_override`
-  path, not high-level inference, to avoid this naming collision. Resolution
-  before production: align the emitted `provider_id` with the Literal
-  values that already exist in common baselines (hyphenated form).
+- The high-level inference parser writes `provider_id` straight from the
+  `type:` Literal value (e.g. `sentence_transformers`, with an underscore).
+  The shipped baseline `run.yaml` and the wider LS ecosystem refer to that
+  same provider by the hyphenated name (`sentence-transformers`). When both
+  are present the two IDs don't match, so baseline references to the
+  embedder break. The PoC sidestepped the collision by using
+  `baseline: default` plus a `native_override` block — not high-level
+  inference — for the validation run. Fix before production: hyphenate the
+  emitted `provider_id` so it matches the ecosystem convention used in
+  baselines (or, equivalently, alias the Literal value at emit time).
 
 ### Results
 
-See [poc-results/library-mode/](poc-results/library-mode/) for the full
-evidence bundle:
+Full evidence bundle for the library-mode PoC (paths relative to this doc):
 
-- `lightspeed-stack-unified-library.yaml` — the unified-mode config used
-- `synthesized-run.yaml` — what LCORE produced (3.7 KB)
-- `query-response.json` — a real `/v1/query` round-trip
+- [`poc-results/lightspeed-stack-unified-library.yaml`](poc-results/lightspeed-stack-unified-library.yaml)
+  — the unified-mode config used.
+- [`poc-results/library-mode/synthesized-run.yaml`](poc-results/library-mode/synthesized-run.yaml)
+  — what LCORE produced (3.7 KB).
+- [`poc-results/library-mode/query-response.json`](poc-results/library-mode/query-response.json)
+  — a real `/v1/query` round-trip.
+- [`poc-results/library-mode/README.md`](poc-results/library-mode/README.md)
+  — walkthrough.
 
 Summary of validation:
 
@@ -640,11 +669,22 @@ Summary of validation:
 | Full unit suite | 2098 passed, 1 skipped, 0 failed |
 | Round-trip lossless | `test_migrate_then_synthesize_reproduces_run_yaml` green |
 
-### Surprise discovered during PoC
+### Findings discovered during PoC
 
-- **`AsyncLlamaStackAsLibraryClient` takes a file path, not a dict** (Decision
-  T9). The library client reads the file itself. Consequence: library mode
-  must write a synthesized file to disk. No dict-only shortcut.
+- **`AsyncLlamaStackAsLibraryClient` takes a file path, not a dict.** The
+  initial design assumed we could pass the synthesized configuration to the
+  library client in memory and avoid touching the filesystem. In practice
+  `llama_stack.core.library_client.AsyncLlamaStackAsLibraryClient` accepts
+  only a string path (or, in newer versions, a `StackRunConfig` object that
+  is itself built from a parsed YAML file). There is no dict-only entry
+  point in the public API. Consequences for the implementation:
+  - Library mode **must** write the synthesized `run.yaml` to disk before
+    constructing the client (R10 in the spec doc — persistent known path,
+    overwritten each boot).
+  - The disk-write step is the same shape as server mode's, so the two
+    paths can share `synthesize_to_file()`.
+  - Any future "dict-only" optimization would require an upstream
+    Llama Stack API addition; not worth pursuing.
 - **`profile:` path resolution** uses the directory of the
   `lightspeed-stack.yaml`. Relative paths work only when the profile is
   co-located with the LCORE config. Absolute paths always work. Spec doc
@@ -661,7 +701,7 @@ Summary of validation:
 
 ## Background sections
 
-### Current architecture (before LCORE-836)
+### Current architecture
 
 Two files:
 
@@ -692,14 +732,69 @@ incrementally enriching an existing one.
 
 ### Design alternatives considered
 
-Attributes (★ = high-weight for LCORE-836):
+This section scores the five design alternatives (A, B, C, D, E)
+against the attributes that matter for LCORE-836. Each cell is a 1–5
+rating; higher is better for that attribute. Cells marked with **★** in
+the attribute name carry more weight in the final choice. The
+recommendation that comes out of these scores is C as the base shape
+with D enabled as an optional layer (Decision S1 + Decision T6). For the
+option short names see [Design options A–E](#design-options-ae).
 
-| Attribute | A | B+C | C+E | E | G |
+Attribute definitions (★ = high-weight for LCORE-836):
+
+- **★ Operator UX** — how little raw LS schema a typical operator must
+  read or write to express common intents (one provider, one safety
+  filter, default storage). High = the high-level keys cover almost
+  everything; low = operators must hand-author LS provider blocks.
+- **Abstraction cleanliness** — how well the LCORE-facing schema hides
+  internal LS shape. High = LCORE owns a stable surface that survives
+  LS schema bumps; low = LCORE just relays LS schema verbatim.
+- **LS schema resilience** — how exposed downstream operators are to
+  Llama Stack schema churn. High = high-level keys absorb upstream
+  renames/restructures inside LCORE; low = every LS change is a
+  breaking change downstream.
+- **★ Escape-hatch power** — coverage when the high-level schema
+  doesn't yet express something the operator needs (e.g. an obscure
+  provider config). High = the operator can drop in raw LS YAML without
+  blocking; low = the operator is stuck waiting for LCORE to add
+  first-class support.
+- **Implementation cost** — engineering work to ship the option (one
+  release scope). High = small change; low = significant new code +
+  tests + docs.
+- **Maintenance load** — ongoing burden after ship (per release).
+  High = touches one place; low = many surfaces to keep in sync
+  (high-level keys, baselines, examples, migration tool).
+- **★ Backward compatibility** — how cleanly the option lets legacy
+  two-file configs keep working through a deprecation window without
+  duplicate code paths. High = legacy path stays intact while unified
+  path adds on; low = the option forces an early breaking change.
+- **Validation rigor** — strength of static + load-time checks LCORE
+  can run against the operator's config. High = Pydantic + cross-field
+  validators catch most mistakes; low = errors only surface when LS
+  itself fails to start.
+- **★ Dynamic-reconfig fit** — how well the option composes with the
+  feature roadmap that wants to change LS config at runtime
+  (LCORE-777/781, BYOK RAG additions). High = the synthesized config is
+  a single dict the supervisor can recompute and reload; low = the
+  shape forces in-place file edits.
+- **★ Library+server parity** — whether the same operator-facing
+  config drives both library-mode and server-mode LS without separate
+  configurations. High = one file, two modes; low = needs mode-specific
+  variants.
+- **Provider plurality** — how many of the LS provider types the option
+  covers without an escape hatch. High = all common types reachable via
+  the option's normal surface; low = the option only covers one or two.
+- **Testability** — ease of writing automated tests against the
+  option's surface. High = small, deterministic inputs map to a single
+  dict output; low = templated/inherited shapes that need integration
+  tests to exercise.
+
+| Attribute | A | B | C | D | E |
 |---|---|---|---|---|---|
-| ★ Operator UX | 2 | 4–5 | **4** | 5 | 3 |
+| ★ Operator UX | 2 | 5 | **4** | 5 | 3 |
 | Abstraction cleanliness | 1 | 4 | 3 | 4 | 2 |
 | LS schema resilience | 1 | 4 | 3 | 3 | 2 |
-| ★ Escape-hatch power | 5 | 3 | 5 | 5 | 5 |
+| ★ Escape-hatch power | 5 | 1 | 5 | 5 | 5 |
 | Implementation cost | 4 | 2 | 2 | 3 | 3 |
 | Maintenance load | 2 | 3 | 3 | 2 | 3 |
 | ★ Backward compatibility | 3 | 3 | 3 | 3 | 4 |
@@ -709,12 +804,12 @@ Attributes (★ = high-weight for LCORE-836):
 | Provider plurality | 5 | 4 | 5 | 4 | 5 |
 | Testability | 3 | 4 | 3 | 5 | 3 |
 
-- **A (Embedded native)** — no abstraction win; same LS schema exposure as today.
-- **B (High-level only)** — best UX when everything maps, painful at the edges.
-- **C (B + `native_override`)** — recommended; combines B's UX with A's escape hatch.
-- **E (Profiles, feature-only)** — optional layer on top of C.
-- **G (Kustomize-style patches)** — strong for backward compat, weak on
-  validation and dynamic reconfig.
+The recommendation column is **C**: it ties or beats every other
+standalone option on the high-weight attributes except Operator UX,
+where it costs one point against B (because the escape hatch adds
+schema surface area) — a trade we accept to keep escape-hatch power at
+5. D layered on top of C adds testability and a clean path for
+deployment-team-authored baselines without changing C's structure.
 
 ### Merge semantics — worked examples
 

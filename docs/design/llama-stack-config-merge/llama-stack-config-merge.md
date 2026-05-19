@@ -304,11 +304,9 @@ Three operator-facing migration paths (choose per deployment):
 | Lift-and-shift | seconds — `lightspeed-stack --migrate-config ...` | Single-file, byte-equivalent LS behavior |
 | Re-express | hours+ | Single-file; high-level sections replace `native_override` |
 
-Deprecation schedule: calendar-based (per Decision S2 in the spike);
-concrete numbers set by @sbunciak at release time. Default recommended
-shape: unified mode ships as opt-in at release N; legacy-mode WARN
-begins one release later; legacy-mode removal no sooner than 6 months
-after WARN begins.
+Deprecation schedule (per Decision S2 in the spike): emit startup
+deprecation warnings during Q3 and Q4; remove the legacy path fully by
+the end of Q4. Subject to PM (@sbunciak) confirmation.
 
 ## Implementation Suggestions
 
@@ -318,7 +316,7 @@ after WARN begins.
 |---|---|
 | `src/models/config.py` | Add `UnifiedInferenceProvider`, `UnifiedInferenceSection`, `UnifiedLlamaStackConfig`. Modify `LlamaStackConfiguration` — add `config` field, extend the `model_validator` for mutual-exclusion check. |
 | `src/llama_stack_configuration.py` | Add `synthesize_configuration`, `deep_merge_list_replace`, `apply_high_level_inference`, `load_default_baseline`, `synthesize_to_file`, `migrate_config_dumb`, `PROVIDER_TYPE_MAP`, `DEFAULT_BASELINE_RESOURCE`. Update `main()` to auto-detect unified vs legacy. |
-| `src/data/default_run.yaml` | New file — a thinner baseline than today's repo-root `run.yaml`. Notably do **not** reference `${env.EXTERNAL_PROVIDERS_DIR}` without a default (see PoC surprise in the spike doc). |
+| `src/data/default_run.yaml` | New file — a thinner baseline than today's repo-root `run.yaml`. Notably do **not** reference `${env.EXTERNAL_PROVIDERS_DIR}` without a default (see "Findings discovered during PoC" in the spike doc). |
 | `src/client.py` | In `_load_library_client`: branch on `config.config` presence. Add `_synthesize_library_config()` that calls the synthesizer and writes to the deterministic path (R10). Keep `_enrich_library_config` for legacy. |
 | `src/lightspeed_stack.py` | Add `--migrate-config`, `--run-yaml`, `--migrate-output`, `--synthesized-config-output` flags. Add an early-exit branch in `main()` that dispatches to `migrate_config_dumb` when `--migrate-config` is set. Clean up stale docstring. |
 | `scripts/llama-stack-entrypoint.sh` | No functional change — the Python CLI already auto-detects. Update the comment to document both modes. |
