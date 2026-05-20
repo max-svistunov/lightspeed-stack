@@ -126,6 +126,59 @@ should be tracked as separate future JIRAs:
 **Recommendation**: confirm this scope split. If reviewers want any of the
 above pulled in, this spike's JIRAs grow accordingly.
 
+### Decision S5: Where do backend-agnostic high-level keys sit?
+
+**Context**: S1 places the unified config's high-level keys
+(`inference.providers` today; later `rag.providers`, etc.) inside the
+LS-specific subtree at `llama_stack.config.inference`. LCORE will migrate
+from Llama Stack to Pydantic AI over time. Under S1's layout, that
+transition would force every downstream team to relearn the config schema —
+the `llama_stack` subtree name becomes a lie, and high-level keys would
+have to move.
+
+**Recommendation**: lift the backend-agnostic keys to the top level of
+`lightspeed-stack.yaml` now. Leave LS-specific knobs under
+`llama_stack.config`. Extends S1; does not replace it (Option C + optional
+D recommendation stands).
+
+| Today (per S1) | Proposed |
+|---|---|
+| `llama_stack.config.inference.providers: …` | `inference.providers: …` |
+| (future) `llama_stack.config.rag.providers: …` | `rag.providers: …` |
+| `llama_stack.config.native_override: …` | unchanged — LS-specific |
+| `llama_stack.config.profile: …` | unchanged — LS-specific (points at LS run.yaml shape) |
+| `llama_stack.config.baseline: …` | unchanged — LS-specific |
+
+The synthesizer reads `inference.providers` from the top level and emits LS
+provider entries exactly as today — only the input node moves. When the
+Pydantic AI transition lands, the same top-level schema is consumed by a
+new synthesizer that emits Pydantic AI's shape; downstream operators see no
+change.
+
+**Scope discipline — what stays under `llama_stack.config`**: anything
+whose vocabulary is genuinely LS-specific and unlikely to translate across
+backends. Today that's `native_override` (raw LS schema by definition),
+`profile` (a YAML file in LS run.yaml shape), `baseline`, and any future
+`apis` / `registered_resources` / `vector_io` / `safety`-shield knobs if
+they ship as high-level keys before the cutover. We do **not** preemptively
+lift these.
+
+**Confidence**: 70%. Reservation: we don't yet know Pydantic AI's provider
+vocabulary, so the recommendation will be updated once a research pass on
+Pydantic AI's actual config surface lands. Until then, abstract only what
+is clearly stable across backends (`inference.providers`: type + creds +
+allowed_models; later `rag.providers`); defer broader abstraction.
+
+> **TODO (spike author, post-research)**: determine whether the
+> `inference.providers[].type` Literal vocabulary (`openai`, `azure`,
+> `sentence_transformers`, …) maps cleanly to Pydantic AI's provider
+> declaration, or whether LCORE should define its own canonical type
+> vocabulary that each backend-specific synthesizer translates.
+
+**Implementation impact**: if adopted, this changes the scope of the
+existing **Unified `llama_stack.config` schema + synthesizer** JIRA — it
+ships the top-level shape from day one. No new JIRA is needed.
+
 ---
 
 ## Technical decisions — for @tisnik and team leads
