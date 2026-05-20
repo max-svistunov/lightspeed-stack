@@ -144,36 +144,72 @@ D recommendation stands).
 | Today (per S1) | Proposed |
 |---|---|
 | `llama_stack.config.inference.providers: …` | `inference.providers: …` |
-| (future) `llama_stack.config.rag.providers: …` | `rag.providers: …` |
 | `llama_stack.config.native_override: …` | unchanged — LS-specific |
 | `llama_stack.config.profile: …` | unchanged — LS-specific (points at LS run.yaml shape) |
 | `llama_stack.config.baseline: …` | unchanged — LS-specific |
+| Future RAG / safety / vector_io / shield high-level keys | stay under `llama_stack.config` — Pydantic AI has no equivalent abstraction (see "Pydantic AI research findings" below) |
 
 The synthesizer reads `inference.providers` from the top level and emits LS
 provider entries exactly as today — only the input node moves. When the
-Pydantic AI transition lands, the same top-level schema is consumed by a
-new synthesizer that emits Pydantic AI's shape; downstream operators see no
-change.
+Pydantic AI transition lands, a new backend-specific synthesizer reads the
+same top-level `inference.providers` block and emits Pydantic AI's
+per-Agent `Provider(...)` + `<vendor>:<model>` shape; downstream operators
+see no change to the `inference` surface.
 
 **Scope discipline — what stays under `llama_stack.config`**: anything
 whose vocabulary is genuinely LS-specific and unlikely to translate across
-backends. Today that's `native_override` (raw LS schema by definition),
-`profile` (a YAML file in LS run.yaml shape), `baseline`, and any future
-`apis` / `registered_resources` / `vector_io` / `safety`-shield knobs if
-they ship as high-level keys before the cutover. We do **not** preemptively
-lift these.
+backends. Today that's `native_override`, `profile`, `baseline`. The
+research pass (see below) confirms that RAG, safety/shields, vector
+storage, and the `apis` / `registered_resources` / `storage` blocks should
+also stay under `llama_stack.config` whenever they ship as high-level keys
+— Pydantic AI has **no equivalent built-in abstraction** for any of these.
 
-**Confidence**: 70%. Reservation: we don't yet know Pydantic AI's provider
-vocabulary, so the recommendation will be updated once a research pass on
-Pydantic AI's actual config surface lands. Until then, abstract only what
-is clearly stable across backends (`inference.providers`: type + creds +
-allowed_models; later `rag.providers`); defer broader abstraction.
+**On the `inference.providers[].type` vocabulary**: keep LCORE's existing
+Literal values (`openai`, `azure`, `sentence_transformers`, `vertexai`,
+`watsonx`, `vllm_rhaiis`, `vllm_rhel_ai`). They are vendor identifiers
+that both Llama Stack (`provider_type: remote::openai`) and Pydantic AI
+(model-string prefixes such as `openai:gpt-4o-mini`) recognise. Each
+backend-specific synthesizer translates the canonical LCORE vocabulary to
+its target shape; we do not adopt either backend's surface verbatim.
 
-> **TODO (spike author, post-research)**: determine whether the
-> `inference.providers[].type` Literal vocabulary (`openai`, `azure`,
-> `sentence_transformers`, …) maps cleanly to Pydantic AI's provider
-> declaration, or whether LCORE should define its own canonical type
-> vocabulary that each backend-specific synthesizer translates.
+**Pydantic AI research findings** (full report:
+[`compass_artifact_…_text_markdown.md`](https://github.com/max-svistunov/lightspeed-stack/blob/lcore-836-spike-llama-stack-config-merge/docs/design/llama-stack-config-merge/poc-results/pydantic-ai-research.md),
+pass dated 2026-05-20 against `pydantic-ai 1.98.0`):
+
+- Pydantic AI's per-Agent `<provider>:<model>` string + `Provider(...)`
+  constructor maps cleanly onto LCORE's `inference.providers` vocabulary.
+  Type + env-var name + base_url + `allowed_models` translate without
+  loss. **Abstract this.** Researcher confidence: ~75%.
+- Pydantic AI ships **no built-in RAG or vector-store abstraction**. The
+  official RAG example wires pgvector via raw `asyncpg` calls and the
+  OpenAI SDK for embeddings; there is no `pydantic_ai.vector_store`
+  module and no public roadmap signal one is coming in the next 6–12
+  months. **Do not preemptively abstract `rag.*`** — keep any future
+  high-level RAG keys under `llama_stack.config`. Researcher confidence
+  it would survive a cutover today: ~25%.
+- Pydantic AI ships **no built-in safety / shield abstraction**.
+  `pydantic-ai` Issue #1197 ("Guardrails") is open with no merge
+  timeline. Third-party capability packages
+  (`pydantic-ai-shields`, `pydantic-ai-guardrails`) exist but have
+  incompatible vocabularies with each other and with Llama Guard. **Do
+  not preemptively abstract `safety.*`** — keep any future high-level
+  safety keys under `llama_stack.config`. Researcher confidence on
+  survival: ~20%.
+- MCP endpoints are the one tool-runtime concept worth abstracting
+  later (~60% confidence): both backends support MCP natively and the
+  URI + auth-token + allowed-tools surface is stable. Out of scope for
+  this spike; capture as future work when the first high-level
+  tool-runtime ticket lands.
+- Pydantic AI is currently at V1 (API-stable until V2, which is "April
+  2026 at the earliest" and has not shipped as of 2026-05-20). V2
+  timing likely overlaps the LCORE migration window; re-validate this
+  decision when V2 ships.
+
+**Confidence**: **75%**. The 25% reservation is research-driven, not
+information-gap-driven: it accounts for Pydantic AI's pre-V2 freedom to
+break minor surfaces (very low probability per its stated policy), plus
+the inherent risk that the per-Agent model the researcher described
+forces LCORE's synthesizer to do more work than expected. Both manageable.
 
 **Implementation impact**: if adopted, this changes the scope of the
 existing **Unified `llama_stack.config` schema + synthesizer** JIRA — it
@@ -777,6 +813,16 @@ Summary of validation:
   for the implementation JIRA.
 - **High-level inference naming collision** (described above in "divergence
   from production design").
+- **Vacuous safety-shield validation in the library-mode PoC**. The
+  `native_override` used during PoC validation registered `llama-guard`
+  with `provider_shield_id: openai/gpt-4o-mini` — an OpenAI chat model,
+  not a Llama Guard checkpoint. The "`native_override` took effect"
+  evidence row above only shows that the key landed in the synthesized
+  output; it does **not** show that a real safety shield gated any
+  query. The implementation JIRAs' e2e coverage must exercise a real
+  Llama Guard model (e.g. `meta-llama/Llama-Guard-3-8B`) end-to-end.
+  Caught by CodeRabbit on the PoC artifact at
+  `poc-results/library-mode/synthesized-run.yaml:110`.
 
 ---
 
