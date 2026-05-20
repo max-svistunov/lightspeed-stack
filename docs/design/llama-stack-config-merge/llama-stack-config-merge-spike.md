@@ -282,6 +282,7 @@ definitions). The feature files can be submitted for review and land
 before implementation of the feature itself begins.
 
 **Scope**:
+
 - `.feature` files covering, at minimum, these R1–R11 surfaces from the
   spec doc:
   - Boot LCORE with unified `lightspeed-stack.yaml` (no external
@@ -308,6 +309,7 @@ before implementation of the feature itself begins.
   drafting scenarios.
 
 **Acceptance criteria**:
+
 - behave parses every new `.feature` file without syntax errors.
 - behave marks all new scenario steps as `undefined` (step definitions
   land in LCORE-????).
@@ -320,6 +322,7 @@ before implementation of the feature itself begins.
 mode).
 
 **Agentic tool instruction**:
+
 ```text
 Read "Requirements" (R1..R11) and "Use Cases" in
 docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
@@ -345,6 +348,7 @@ Stack `run.yaml` from it. Wire library mode to the synthesizer. Preserve
 legacy mode through mutual-exclusion validation.
 
 **Scope**:
+
 - New Pydantic classes in `src/models/config.py`.
 - New functions in `src/llama_stack_configuration.py`:
   `synthesize_configuration`, `deep_merge_list_replace`,
@@ -357,6 +361,7 @@ legacy mode through mutual-exclusion validation.
 - Legacy behavior (`llama_stack.library_client_config_path` path) unchanged.
 
 **Acceptance criteria**:
+
 - Unified `lightspeed-stack.yaml` (no external `run.yaml`) boots LCORE in
   library mode and serves `/v1/query`.
 - Legacy configs continue to work with no change.
@@ -364,6 +369,7 @@ legacy mode through mutual-exclusion validation.
 - Unit tests for synthesizer, merge semantics, schema validation.
 
 **Agentic tool instruction**:
+
 ```text
 Read the "Architecture" and "Implementation Suggestions" sections of
 docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
@@ -386,6 +392,7 @@ that produces a unified single-file config from an existing
 `baseline: empty`, removes `library_client_config_path`.
 
 **Scope**:
+
 - `migrate_config_dumb()` function in `src/llama_stack_configuration.py`.
 - `--migrate-config`, `--run-yaml`, `--migrate-output` flags in
   `src/lightspeed_stack.py`.
@@ -393,6 +400,7 @@ that produces a unified single-file config from an existing
   `run.yaml`.
 
 **Acceptance criteria**:
+
 - `lightspeed-stack --migrate-config --run-yaml X -c Y --migrate-output Z`
   produces a unified config that boots LCORE in library mode to the same
   Llama Stack behavior as the original pair.
@@ -400,6 +408,7 @@ that produces a unified single-file config from an existing
 - `--help` describes the flag clearly.
 
 **Agentic tool instruction**:
+
 ```text
 Read "Migration tool" in docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
 Key files: src/lightspeed_stack.py, src/llama_stack_configuration.py,
@@ -418,6 +427,7 @@ manifests so server mode works end-to-end from a unified
 the synthesizer script and default baseline.
 
 **Scope**:
+
 - Update `scripts/llama-stack-entrypoint.sh` — the existing script already
   defers to the Python CLI for auto-detection; document that behavior.
 - Update `test.containerfile` to copy `src/data/` into the LS container so
@@ -428,11 +438,13 @@ the synthesizer script and default baseline.
   see Decision T8).
 
 **Acceptance criteria**:
+
 - `docker compose up` with a unified `lightspeed-stack.yaml` starts both
   containers healthy; `/v1/query` works through LCORE → LS.
 - Legacy docker-compose layout (with external `run.yaml` mount) still works.
 
 **Agentic tool instruction**:
+
 ```text
 Read "Architecture → Server mode" in docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
 Key files: scripts/llama-stack-entrypoint.sh, test.containerfile,
@@ -455,17 +467,20 @@ corresponding `lightspeed-stack*.yaml`). Migrate `tests/e2e-prow/rhoai/`
 configs similarly.
 
 **Scope**:
+
 - Identify every test config that references `run.yaml`.
 - Mechanically migrate using the migration tool (dumb mode).
 - Re-run the full e2e suite and resolve any differences.
 
 **Acceptance criteria**:
+
 - No in-repo test config references an external `run.yaml`.
 - `uv run make test-e2e` passes.
 - Existing test coverage is preserved (no tests deleted solely to make the
   migration pass).
 
 **Agentic tool instruction**:
+
 ```text
 Read "Migration paths" in docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
 Key files: tests/e2e/configs/, tests/e2e/configuration/, tests/e2e-prow/rhoai/.
@@ -488,6 +503,7 @@ raise it against the spec doc (and possibly back to LCORE-???? kickoff)
 rather than quietly weakening the test.
 
 **Scope**:
+
 - Step definitions for every step pattern in the new `.feature` files.
 - Fixtures or helpers under `tests/e2e/features/steps/` as needed
   (e.g., temp-dir config authoring, subprocess start/stop for LCORE,
@@ -495,6 +511,7 @@ rather than quietly weakening the test.
 - CI wiring so the new scenarios run as part of `uv run make test-e2e`.
 
 **Acceptance criteria**:
+
 - behave reports zero `undefined` steps across the new `.feature`
   files.
 - `uv run make test-e2e` runs the new scenarios and they pass.
@@ -503,6 +520,7 @@ rather than quietly weakening the test.
   explicit rationale).
 
 **Blocked by**:
+
 - LCORE-???? (E2E feature files for unified mode — the `.feature`
   files being implemented against).
 - LCORE-???? (Unified schema + synthesizer), LCORE-????
@@ -510,6 +528,7 @@ rather than quietly weakening the test.
   — the feature under test must exist.
 
 **Agentic tool instruction**:
+
 ```text
 Read "Architecture" and "Requirements" in
 docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
@@ -539,18 +558,21 @@ migration section with the migration tool command. Clean up the stale
 mentions the removed `-g/-i/-o` flags.
 
 **Scope**:
+
 - Each doc file touched.
 - A new migration section (step-by-step).
 - Update the `create_argument_parser` docstring in
   `src/lightspeed_stack.py`.
 
 **Acceptance criteria**:
+
 - Every doc page that showed a two-file setup also shows the unified-mode
   equivalent.
 - Migration tool invocation documented with a worked example.
 - `docs/openapi.md` / `docs/config.html` regenerated.
 
 **Agentic tool instruction**:
+
 ```text
 Read "Deprecation timeline" and "Migration paths" in docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
 Key files: docs/*.md, docs/*.html, docs/*.json, README.md, src/lightspeed_stack.py docstring.
@@ -568,16 +590,19 @@ write and reference their own profiles via
 `llama_stack.config.profile: <path>`.
 
 **Scope**:
+
 - `examples/profiles/openai-remote.yaml`
 - `examples/profiles/inline-faiss.yaml`
 - Docs section: how to author a profile, where to place it, how to
   reference it from `lightspeed-stack.yaml`.
 
 **Acceptance criteria**:
+
 - Both examples load cleanly via the synthesizer (sanity test).
 - A docs section titled "Profiles" exists and has a worked example.
 
 **Agentic tool instruction**:
+
 ```text
 Read "Profiles" in docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
 Key files to create: examples/profiles/*.yaml, a "Profiles" section in docs/config.md or docs/deployment_guide.md.
@@ -593,16 +618,19 @@ emit a one-line startup WARN when `library_client_config_path` is set. Link
 to the migration doc. Legacy mode continues to fully function.
 
 **Scope**:
+
 - Warning emission point: on load in `LlamaStackConfiguration`
   `check_llama_stack_model` validator, or at LCORE startup.
 - Log line format includes a stable URL fragment to the migration doc.
 
 **Acceptance criteria**:
+
 - Legacy configs still load and run.
 - A single WARN line appears at startup when legacy fields are used.
 - The warning is not emitted in unified mode.
 
 **Agentic tool instruction**:
+
 ```text
 Read "Deprecation timeline" in docs/design/llama-stack-config-merge/llama-stack-config-merge.md.
 Key files: src/models/config.py (or src/lightspeed_stack.py startup).
@@ -814,6 +842,7 @@ deployment-team-authored baselines without changing C's structure.
 ### Merge semantics — worked examples
 
 Given the baseline:
+
 ```yaml
 safety:
   default_shield_id: llama-guard
@@ -827,12 +856,14 @@ providers:
 ```
 
 And `native_override`:
+
 ```yaml
 safety:
   excluded_categories: [spam]
 ```
 
 **Deep-merge-with-list-replacement (chosen)** produces:
+
 ```yaml
 safety:
   default_shield_id: llama-guard          # preserved (not in override)
