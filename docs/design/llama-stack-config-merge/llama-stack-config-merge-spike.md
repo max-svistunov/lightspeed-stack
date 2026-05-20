@@ -163,7 +163,7 @@ what semantics?
 no list-merge tarpit, keeps scalar + map overrides minimal. Implemented in
 `deep_merge_list_replace()`. Confidence: 70%.
 
-See [Merge semantics worked examples](#merge-semantics-worked-examples).
+See [Merge semantics — worked examples](#merge-semantics--worked-examples).
 
 ### Decision T3: Secrets in synthesized files
 

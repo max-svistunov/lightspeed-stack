@@ -74,8 +74,13 @@ detail that LCORE owns, not an operator-facing artifact.
   by the high-level section or by the baseline, deep-merge semantics
   apply with list replacement (maps merge recursively; lists are
   replaced wholesale; scalars are replaced).
-- **R6:** Secrets are never resolved into the synthesized file on disk.
-  `${env.FOO}` references appear verbatim in the synthesized `run.yaml`.
+- **R6:** Secrets that LCORE itself emits are never resolved on disk:
+  `apply_high_level_inference` writes `${env.<VAR>}` references
+  verbatim, and LCORE does not eagerly resolve env refs in the
+  baseline or in `native_override` before writing. (Operators may
+  still hand-write literal secrets into `native_override` or into a
+  legacy `run.yaml` that is migrated through dumb mode — see the
+  Security considerations section for the on-disk implications.)
 - **R7:** Existing enrichment behavior (Azure Entra ID, BYOK RAG,
   Solr/OKP) produces the same result in unified mode as in legacy mode
   for equivalent inputs.
@@ -86,9 +91,12 @@ detail that LCORE owns, not an operator-facing artifact.
   field; validation enforces mutual exclusion with legacy mode and
   rejects unknown fields (`extra="forbid"`).
 - **R10:** The synthesized `run.yaml` is written to a persistent known
-  path (overwritten each boot), logged, and a CLI flag
-  `--synthesized-config-output` lets operators override the location for
-  debugging.
+  path (overwritten each boot) with file mode `0600` (owner read/write
+  only — the file may contain literal secrets when `native_override` or
+  the dumb migration tool's output carries them; restrictive perms must
+  be set on create, not left to umask). Path is logged at startup, and
+  a CLI flag `--synthesized-config-output` lets operators override the
+  location for debugging.
 - **R11:** Shape detection determines mode (unified vs legacy); an
   optional `config_format_version` field is accepted but must agree with
   the shape when present.
@@ -277,18 +285,33 @@ removed `-g/-i/-o` flags is cleaned up as part of the docs JIRA.
 
 ### Security considerations
 
-- **No secrets written to disk**: `apply_high_level_inference` emits
-  `${env.<VAR>}` references, never the resolved secret. The synthesized
-  `run.yaml` is safe to log path-wise; its contents only contain env
-  references for secrets.
-- **`native_override` is raw YAML**: content is operator-controlled, so
-  no new injection surface — same trust model as the existing
-  `run.yaml`. LCORE does no template expansion other than the existing
-  `replace_env_vars()` step in the load pipeline.
-- **Synthesized file location**: persistent known path, world-readable
-  by default in a container. This is acceptable because the file
-  contains only env-var references for secrets; operators who want
-  stricter filesystem permissions should tighten the mount.
+- **High-level inference emits env refs, not literal secrets**:
+  `apply_high_level_inference` writes `${env.<VAR>}` strings, never
+  the resolved value. An operator authoring `lightspeed-stack.yaml`
+  from scratch with only high-level keys produces synthesized output
+  with no literal secrets on disk. LS itself resolves env refs to
+  values in-memory at startup via `replace_env_vars()` in
+  `llama_stack.core.library_client`.
+- **`native_override` (and dumb-mode migration output) MAY carry
+  literal secrets**: `native_override` is whatever raw YAML the
+  operator drops in, and `migrate_config_dumb()` lifts an existing
+  `run.yaml` verbatim — which may already contain `api_key: sk-...`
+  if a downstream team baked the secret into their legacy file. The
+  synthesized file therefore CANNOT be assumed secret-free.
+- **Mandate `0600` on the synthesized file**: `synthesize_to_file()`
+  must create the file with mode `0600` (owner read/write only) using
+  an explicit create flag — not relying on umask. This bounds the
+  blast radius when `native_override` or a migrated `run.yaml` does
+  contain a literal secret. (See R10.)
+- **Document env-refs as the recommended pattern**: the migration
+  tool's `--help` and the migration doc should advise operators to
+  replace literal secrets in their legacy `run.yaml` with
+  `${env.<VAR>}` references either before migrating, or after
+  migration inside the resulting `native_override` block.
+- **`native_override` injection surface**: content is
+  operator-controlled, so no new surface — same trust model as the
+  existing `run.yaml`. LCORE does no template expansion other than
+  LS's own `replace_env_vars()` step at load time.
 
 ### Migration / backwards compatibility
 
