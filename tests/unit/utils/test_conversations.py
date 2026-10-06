@@ -967,6 +967,8 @@ class TestAppendTurnToConversation:  # pylint: disable=too-few-public-methods
         assert items[0].content == "Hello"
         assert items[1].type == "message" and items[1].role == "assistant"
         assert items[1].content == "I cannot help with that"
+        # only a shield stores a turn this way, so it is stored as blocked
+        assert all(is_blocked_item(item) for item in items)
 
 
 class TestReplaceLastAssistantMessage:
