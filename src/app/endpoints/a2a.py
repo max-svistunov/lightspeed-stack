@@ -79,6 +79,7 @@ from utils.otel_tracing import (
 from utils.pydantic_ai_helpers import build_agent, captured_output_items
 from utils.query import extract_provider_and_model_from_model_id
 from utils.responses import prepare_responses_params
+from utils.shields import request_redactor
 from utils.suid import normalize_conversation_id
 from version import __version__
 
@@ -490,6 +491,9 @@ class A2AAgentExecutor(AgentExecutor):
                     responses_params,
                     configuration.inference,
                     configuration.compaction,
+                    redact=request_redactor(
+                        configuration.shields, query_request.shield_ids
+                    ),
                 )
                 responses_params = compaction.params
 
