@@ -275,65 +275,6 @@ class TestQueryTurnPersistence:
         await _assert_stored(mock_conversation_store, _plain_conversation())
 
     @pytest.mark.asyncio
-    async def test_blocked_turn_outside_compacted_mode_is_stored_once(
-        self,
-        test_config: AppConfig,
-        mock_ogx_client: AsyncMockType,
-        mock_query_agent: AsyncMockType,
-        mock_conversation_store: InMemoryConversationStore,
-        test_request: Request,
-        test_auth: AuthTuple,
-        patch_db_session: Session,
-        mocker: MockerFixture,
-    ) -> None:
-        """A blocked request never reaches OGX, so the refusal turn is ours."""
-        _ = mock_ogx_client
-        create_existing_conversation(patch_db_session, test_auth[0])
-        await _seed(test_config, mock_conversation_store, _plain_conversation())
-        mocker.patch(
-            "app.endpoints.query.run_shield_moderation",
-            new=mocker.AsyncMock(return_value=_blocked()),
-        )
-
-        await _send_query(test_request, test_auth)
-
-        mock_query_agent.run.assert_not_awaited()
-        await _assert_stored(
-            mock_conversation_store, _plain_conversation() + _turn(REFUSAL)
-        )
-
-    @pytest.mark.asyncio
-    async def test_blocked_turn_in_compacted_mode_is_not_stored(
-        self,
-        test_config: AppConfig,
-        mock_ogx_client: AsyncMockType,
-        mock_query_agent: AsyncMockType,
-        mock_conversation_store: InMemoryConversationStore,
-        test_request: Request,
-        test_auth: AuthTuple,
-        patch_db_session: Session,
-        mocker: MockerFixture,
-    ) -> None:
-        """A blocked request on a compacted conversation leaves no turn behind.
-
-        This is the behaviour as it is, recorded so that a change to it is a
-        decision: /v1/streaming_query and /v1/responses do store this turn,
-        and LCORE-3788 settles what all of them should do.
-        """
-        _ = mock_ogx_client
-        create_existing_conversation(patch_db_session, test_auth[0])
-        await _seed(test_config, mock_conversation_store, _compacted_conversation())
-        mocker.patch(
-            "app.endpoints.query.run_shield_moderation",
-            new=mocker.AsyncMock(return_value=_blocked()),
-        )
-
-        await _send_query(test_request, test_auth)
-
-        mock_query_agent.run.assert_not_awaited()
-        await _assert_stored(mock_conversation_store, _compacted_conversation())
-
-    @pytest.mark.asyncio
     async def test_failed_turn_in_compacted_mode_is_not_stored(
         self,
         test_config: AppConfig,
@@ -524,44 +465,6 @@ class TestStreamingQueryTurnPersistence:
         [_compacted_conversation, _plain_conversation],
         ids=["compacted", "not-compacted"],
     )
-    async def test_blocked_turn_is_stored_once(
-        self,
-        stored_conversation: Any,
-        test_config: AppConfig,
-        mock_ogx_client: AsyncMockType,
-        mock_streaming_query_agent: AsyncMockType,
-        mock_conversation_store: InMemoryConversationStore,
-        test_request: Request,
-        test_auth: AuthTuple,
-        patch_db_session: Session,
-        mocker: MockerFixture,
-    ) -> None:
-        """The refusal turn is stored once, whichever mode the conversation is in.
-
-        Outside compacted mode it is written before the stream starts, in
-        compacted mode when the stream ends. Neither may also do the other's.
-        """
-        _ = mock_ogx_client
-        create_existing_conversation(patch_db_session, test_auth[0])
-        await _seed(test_config, mock_conversation_store, stored_conversation())
-        mocker.patch(
-            "app.endpoints.streaming_query.run_shield_moderation",
-            new=mocker.AsyncMock(return_value=_blocked()),
-        )
-
-        await _drain(await _send_streaming_query(test_request, test_auth))
-
-        mock_streaming_query_agent.build_agent_mock.assert_not_called()
-        await _assert_stored(
-            mock_conversation_store, stored_conversation() + _turn(REFUSAL)
-        )
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "stored_conversation",
-        [_compacted_conversation, _plain_conversation],
-        ids=["compacted", "not-compacted"],
-    )
     async def test_interrupted_turn_is_stored_once(
         self,
         stored_conversation: Any,
@@ -671,57 +574,6 @@ class TestStreamingQueryTurnPersistence:
         await body.aclose()
 
         await _assert_stored(mock_conversation_store, _compacted_conversation())
-
-    @pytest.mark.asyncio
-    async def test_blocked_turn_is_not_stored_again_by_an_interrupt(
-        self,
-        test_config: AppConfig,
-        mock_ogx_client: AsyncMockType,
-        mock_streaming_query_agent: AsyncMockType,
-        mock_conversation_store: InMemoryConversationStore,
-        test_request: Request,
-        test_auth: AuthTuple,
-        patch_db_session: Session,
-        mocker: MockerFixture,
-    ) -> None:
-        """A refusal that was stored is the turn; an interrupt adds no second one.
-
-        Outside compacted mode the refusal turn is stored before the stream
-        starts. An interrupt while the refusal is streamed used to store the
-        turn again, with the interruption notice for an answer. The turn has
-        one owner now, so it is stored once; the interrupt still records the
-        turn in the database, as before.
-        """
-        _ = mock_ogx_client
-        _ = mock_streaming_query_agent
-        create_existing_conversation(patch_db_session, test_auth[0])
-        await _seed(test_config, mock_conversation_store, _plain_conversation())
-        mocker.patch(
-            "app.endpoints.streaming_query.run_shield_moderation",
-            new=mocker.AsyncMock(return_value=_blocked()),
-        )
-
-        async def _refusal_that_stalls(*_args: Any, **_kwargs: Any) -> Any:
-            yield 'data: {"event": "token", "data": {"id": 0, "token": "Content"}}\n\n'
-            await asyncio.Event().wait()
-
-        mocker.patch(
-            "utils.agents.streaming.shield_violation_generator",
-            side_effect=_refusal_that_stalls,
-        )
-
-        chunks = await _interrupt_stream(test_request, test_auth)
-
-        assert any('"event": "interrupted"' in chunk for chunk in chunks)
-        await _assert_stored(
-            mock_conversation_store, _plain_conversation() + _turn(REFUSAL)
-        )
-        recorded_turns = (
-            patch_db_session.query(UserTurn)
-            .filter_by(conversation_id=EXISTING_CONV_ID)
-            .count()
-        )
-        assert recorded_turns == 1
 
 
 # ==========================================
@@ -1266,34 +1118,6 @@ class TestFailedWrite:
         assert not any('"event": "error"' in chunk for chunk in chunks)
         assert mock_ogx_client.items.create.await_count == 1
         await _assert_stored(mock_conversation_store, _compacted_conversation())
-
-    @pytest.mark.asyncio
-    async def test_blocked_streaming_query_fails_before_the_stream(
-        self,
-        test_config: AppConfig,
-        mock_ogx_client: AsyncMockType,
-        mock_streaming_query_agent: AsyncMockType,
-        mock_conversation_store: InMemoryConversationStore,
-        test_request: Request,
-        test_auth: AuthTuple,
-        patch_db_session: Session,
-        mocker: MockerFixture,
-    ) -> None:
-        """Outside compacted mode a refusal that cannot be stored is an error."""
-        _ = mock_streaming_query_agent
-        create_existing_conversation(patch_db_session, test_auth[0])
-        await _seed(test_config, mock_conversation_store, _plain_conversation())
-        mocker.patch(
-            "app.endpoints.streaming_query.run_shield_moderation",
-            new=mocker.AsyncMock(return_value=_blocked()),
-        )
-        _break_the_store(mock_ogx_client, mocker)
-
-        with pytest.raises(HTTPException) as error:
-            await _send_streaming_query(test_request, test_auth)
-
-        assert error.value.status_code == 500
-        assert mock_ogx_client.items.create.await_count == 1
 
     @pytest.mark.asyncio
     async def test_interrupted_streaming_query_still_records_the_turn(

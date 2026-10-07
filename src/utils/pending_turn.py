@@ -17,7 +17,7 @@ has to store the turn and which input is stored, and it stores a turn once,
 regardless of how many callers ask.
 
 A request served in compacted mode that reaches the end of its handler without
-anyone having tried to store its turn, or having dropped it on purpose, fails:
+anyone having tried to store its turn fails:
 :meth:`PendingTurn.ensure_settled` raises :class:`TurnNotStoredError`. Three
 endings are not covered by that check and store nothing: a stream the client
 stops reading, a ``/v1/responses`` stream without a final response, and a write
@@ -38,16 +38,13 @@ from ogx_api import OpenAIResponseOutput
 from ogx_api.openai_responses import OpenAIResponseMessage
 from ogx_client import AsyncOgxClient
 
-from log import get_logger
 from models.common.responses.responses_api_params import ResponsesApiParams
 from models.common.responses.types import ResponseInput
 from utils.conversations import append_turn_items_to_conversation
 
-logger = get_logger(__name__)
-
 
 class TurnNotStoredError(Exception):
-    """Nobody tried to store a turn lightspeed-stack has to store, or dropped it.
+    """Nobody tried to store a turn lightspeed-stack has to store.
 
     Deliberately not a ``RuntimeError``: the endpoints catch that one around
     the model call and report it as an inference failure, which this is not.
@@ -59,10 +56,10 @@ class PendingTurn:
     """The turn of the request being served, until it is settled.
 
     A turn is settled by the first of :meth:`store_completed`,
-    :meth:`store_blocked`, :meth:`store_interrupted` and :meth:`drop` that is
-    called. Every later call does nothing, so the write happens once when
-    several paths of a request want it (the end of a stream, the cancellation
-    handler, the interrupt callback).
+    :meth:`store_blocked` and :meth:`store_interrupted` that is called. Every
+    later call does nothing, so the write happens once when several paths of a
+    request want it (the end of a stream, the cancellation handler, the
+    interrupt callback).
 
     Attributes:
         client: OGX client used for the write.
@@ -134,7 +131,7 @@ class PendingTurn:
         """Whether the turn has been taken care of.
 
         That is the case once a write was attempted, whether or not it
-        succeeded, or the turn was left to OGX or left out on purpose.
+        succeeded, or the turn was left to OGX.
         """
         return self.outcome is not None
 
@@ -194,19 +191,6 @@ class PendingTurn:
             [OpenAIResponseMessage(role="assistant", content=partial_response)],
         )
 
-    def drop(self, reason: str) -> None:
-        """Leave the turn out of the conversation on purpose.
-
-        Parameters:
-            reason: Why the turn is not stored; kept as the outcome and logged.
-        """
-        if self._settle(f"dropped: {reason}") and self.ours:
-            logger.info(
-                "Turn on conversation %s is not stored: %s",
-                self.conversation_id,
-                reason,
-            )
-
     def ensure_settled(self) -> None:
         """Fail when lightspeed-stack has to store the turn and nobody tried to.
 
@@ -222,7 +206,7 @@ class PendingTurn:
             raise TurnNotStoredError(
                 f"the turn on conversation {self.conversation_id} was served "
                 "without the conversation parameter, and nobody tried to store "
-                "it or dropped it; the next request would not see it"
+                "it; the next request would not see it"
             )
 
     def _settle(self, outcome: str) -> bool:

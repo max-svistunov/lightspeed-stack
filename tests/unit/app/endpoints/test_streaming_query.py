@@ -147,10 +147,6 @@ class TestStreamingQueryEndpointHandler:
         mock_responses_params.model = "provider1/model1"
         mock_responses_params.conversation = "conv_123"
         mock_responses_params.tools = None
-        mock_responses_params.input = "What is OpenShift?"
-        mock_responses_params.store = True
-        mock_responses_params.previous_response_id = None
-        mock_responses_params.omit_conversation = False
         mock_responses_params.model_dump.return_value = {
             "input": "test",
             "model": "provider1/model1",
@@ -234,10 +230,6 @@ class TestStreamingQueryEndpointHandler:
         mock_responses_params.model = "provider1/model1"
         mock_responses_params.conversation = "conv_123"
         mock_responses_params.tools = None
-        mock_responses_params.input = "What is OpenShift?"
-        mock_responses_params.store = True
-        mock_responses_params.previous_response_id = None
-        mock_responses_params.omit_conversation = False
         mock_responses_params.model_dump.return_value = {
             "input": "test",
             "model": "provider1/model1",
@@ -332,10 +324,6 @@ class TestStreamingQueryEndpointHandler:
         mock_responses_params.model = "provider1/model1"
         mock_responses_params.conversation = "conv_123"
         mock_responses_params.tools = None
-        mock_responses_params.input = "What is OpenShift?"
-        mock_responses_params.store = True
-        mock_responses_params.previous_response_id = None
-        mock_responses_params.omit_conversation = False
         mock_responses_params.model_dump.return_value = {
             "input": "test",
             "model": "provider1/model1",
@@ -428,10 +416,6 @@ class TestStreamingQueryEndpointHandler:
         mock_responses_params.model = "provider1/model1"
         mock_responses_params.conversation = "conv_123"
         mock_responses_params.tools = None
-        mock_responses_params.input = "What is OpenShift?"
-        mock_responses_params.store = True
-        mock_responses_params.previous_response_id = None
-        mock_responses_params.omit_conversation = False
         mock_responses_params.model_dump.return_value = {
             "input": "test",
             "model": "provider1/model1",
@@ -518,10 +502,6 @@ class TestStreamingQueryEndpointHandler:
         mock_responses_params.model = "azure/model1"
         mock_responses_params.conversation = "conv_123"
         mock_responses_params.tools = None
-        mock_responses_params.input = "What is OpenShift?"
-        mock_responses_params.store = True
-        mock_responses_params.previous_response_id = None
-        mock_responses_params.omit_conversation = False
         mock_responses_params.model_dump.return_value = {
             "input": "test",
             "model": "azure/model1",
@@ -621,10 +601,6 @@ class TestStreamingQueryOtelInstrumentation:
         mock_responses_params.model = "provider1/model1"
         mock_responses_params.conversation = "conv_123"
         mock_responses_params.tools = None
-        mock_responses_params.input = "What is OpenShift?"
-        mock_responses_params.store = True
-        mock_responses_params.previous_response_id = None
-        mock_responses_params.omit_conversation = False
         mock_responses_params.model_dump.return_value = {
             "input": "test",
             "model": "provider1/model1",

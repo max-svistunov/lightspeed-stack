@@ -351,21 +351,22 @@ and the completed turn is appended to the conversation items afterward.
 That append has one owner, `PendingTurn` in `src/utils/pending_turn.py`
 (LCORE-3908). An endpoint creates it from the parameters the request is sent
 with and the `original_input` of the `CompactionResult`, and reports how the
-turn ended: `store_completed`, `store_blocked`, `store_interrupted` or `drop`.
+turn ended: `store_completed`, `store_blocked` or `store_interrupted`.
 The first report settles the turn and every later one does nothing, so a turn is
 stored once even when several paths of a request want to store it (the end of a
 stream, the cancellation handler, the interrupt callback). `PendingTurn` also
-covers the other turns OGX does not store: a request a shield blocked, an
-interrupted stream, a continuation from `previous_response_id`.
+covers the other turns OGX does not store: a request a shield blocked on
+`/v1/responses`, an interrupted stream, a continuation from
+`previous_response_id`.
 
 A compacted request that loses its turn through a change in the code fails.
 Building a `PendingTurn` for compacted parameters without the original input
 raises `ValueError`, and `ensure_settled()` raises `TurnNotStoredError` when a
 compacted request reaches the end of its handler and nobody tried to store its
-turn or dropped it on purpose. `/v1/query` runs inside the `pending_turn()`
-scope, which makes that check when it is left; the streaming paths,
-`/v1/responses` and A2A make it after their write. Before this, a lost write
-was silent: the conversation stopped growing and nothing failed (LCORE-3883).
+turn. `/v1/query` runs inside the `pending_turn()` scope, which makes that check
+when it is left; the streaming paths, `/v1/responses` and A2A make it after
+their write. Before this, a lost write was silent: the conversation stopped
+growing and nothing failed (LCORE-3883).
 
 The check does not cover three endings, which store nothing and are rows of the
 table below: a stream the client stops reading, a `/v1/responses` stream without
@@ -382,13 +383,10 @@ column says what a failed write does to the request.
 | Endpoint | Turn ended | Not compacted | Compacted | Failed write |
 |---|---|---|---|---|
 | `/v1/query` | completed | OGX | stored | request fails |
-| | blocked by a shield | stored | not stored (LCORE-3788) | request fails |
 | | model call failed | not stored | not stored | |
 | | run did not finish with success | OGX | not stored | |
 | `/v1/streaming_query` | completed, also when the run did not finish with success | OGX | stored when the stream ends | logged |
-| | blocked by a shield | stored before the stream starts | stored when the stream ends | request fails / logged |
 | | interrupted by the client | stored, with the answer so far | stored, with the answer so far | logged |
-| | blocked by a shield, then interrupted | the refusal, stored once before the stream; the interrupt adds nothing | stored, with the answer so far | logged |
 | | client stopped reading | OGX | not stored | |
 | `/v1/responses` | completed, incomplete or failed | OGX; stored when continuing from `previous_response_id` | stored | request fails; a stream ends before `[DONE]` |
 | | blocked by a shield | stored | stored | request fails |
@@ -401,13 +399,8 @@ column says what a failed write does to the request.
 the real handlers and compares the conversation item by item after the request.
 The compacted column is covered row by row; the other column for the rows where
 lightspeed-stack stores the turn, and for a completed turn on each endpoint. The
-last column is covered for a completed turn on each endpoint, for a blocked and
-for an interrupted stream.
-
-The row "blocked by a shield, then interrupted" is the one place where this
-change alters what is stored. The interrupt used to store the turn a second
-time, with the interruption notice for an answer. It still records the turn in
-the database.
+last column is covered for a completed turn on each endpoint and for an
+interrupted stream.
 
 ## Fetching conversation history
 

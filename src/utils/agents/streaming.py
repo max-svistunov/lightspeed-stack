@@ -108,7 +108,6 @@ async def retrieve_agent_response_generator(
     endpoint_path: str,
     no_tools: bool = False,
     image_attachments: Optional[list[Attachment]] = None,
-    turn: Optional[PendingTurn] = None,
 ) -> tuple[AsyncIterator[str], TurnSummary]:
     """Return the SSE generator and mutable turn summary for an agent run.
 
@@ -118,9 +117,6 @@ async def retrieve_agent_response_generator(
         endpoint_path: Endpoint path used for metric labeling.
         no_tools: Whether to skip tool processing.
         image_attachments: Image attachments for multimodal prompt construction.
-        turn: The pending turn of the request, shared with
-            :func:`generate_agent_response` so that the turn is stored once
-            (LCORE-3908). Created from the parameters when not given.
 
     Returns:
         Tuple of SSE async iterator and mutable turn summary.

@@ -261,8 +261,7 @@ async def _handle_query_with_tracing(
     ] or None
 
     # Retrieve response using Responses API. In compacted mode OGX does not
-    # store the turn; the scope fails the request if nobody tried to store the
-    # turn or dropped it on purpose.
+    # store the turn; the scope fails the request if nobody tried to store it.
     async with pending_turn(
         client, responses_params, compaction.original_input
     ) as turn:

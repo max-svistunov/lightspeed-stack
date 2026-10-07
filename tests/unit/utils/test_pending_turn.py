@@ -210,7 +210,7 @@ async def test_a_turn_is_stored_once() -> None:
 
 @pytest.mark.asyncio
 async def test_a_blocked_turn_is_not_stored_again_by_an_interrupt() -> None:
-    """The refusal written before the stream started is the turn; an interrupt adds none."""
+    """A turn settled as blocked is the turn; a later interrupt report adds none."""
     client = RecordingClient()
     turn = _turn(client)
 
@@ -218,19 +218,6 @@ async def test_a_blocked_turn_is_not_stored_again_by_an_interrupt() -> None:
     assert await turn.store_interrupted("block") is False
 
     assert client.stored == [USER, (CONVERSATION, "assistant", "blocked by a shield")]
-
-
-@pytest.mark.asyncio
-async def test_a_dropped_turn_is_not_stored_later() -> None:
-    """A turn left out on purpose stays out."""
-    client = RecordingClient()
-    turn = _turn(client, compacted=True)
-
-    turn.drop("the request was blocked")
-
-    assert turn.settled
-    assert await turn.store_completed([ANSWER]) is False
-    assert client.writes == 0
 
 
 @pytest.mark.asyncio
@@ -251,7 +238,7 @@ async def test_a_failed_write_is_not_repeated() -> None:
 
 
 def test_unsettled_turn_of_ours_is_an_error() -> None:
-    """A compacted turn that was neither stored nor dropped is a lost turn."""
+    """A compacted turn that nobody tried to store is a lost turn."""
     turn = _turn(RecordingClient(), compacted=True)
 
     with pytest.raises(TurnNotStoredError, match=CONVERSATION):
@@ -260,14 +247,10 @@ def test_unsettled_turn_of_ours_is_an_error() -> None:
 
 @pytest.mark.asyncio
 async def test_settled_turn_passes_the_check() -> None:
-    """Stored, dropped and left to OGX are all fine."""
+    """Stored, left to OGX and not wanted are all fine."""
     stored = _turn(RecordingClient(), compacted=True)
     await stored.store_completed([ANSWER])
     stored.ensure_settled()
-
-    dropped = _turn(RecordingClient(), compacted=True)
-    dropped.drop("the model call failed")
-    dropped.ensure_settled()
 
     _turn(RecordingClient()).ensure_settled()
     _turn(RecordingClient(), compacted=True, store=False).ensure_settled()
@@ -393,6 +376,15 @@ WRITERS = {
     ],
     "build_add_items_request": [
         "utils/conversation_compaction.py",
+        "utils/conversations.py",
+    ],
+    # Granite Guardian replaces the answer OGX stored when it rejects an
+    # output or a tool result: the last assistant message is deleted and the
+    # violation message appended, again only when the model was handed the
+    # conversation. conversations_v1.py only names the function in a comment
+    "replace_last_assistant_message": [
+        "app/endpoints/conversations_v1.py",
+        "pydantic_ai_lightspeed/capabilities/granite_guardian/_capability.py",
         "utils/conversations.py",
     ],
 }

@@ -596,7 +596,8 @@ class A2AAgentExecutor(AgentExecutor):
                 span,
                 self._tool_call_names,
                 self._run_result,
-                compaction.compacted,
+                # compacted mode: the conversation parameter was not sent
+                responses_params.omit_conversation,
                 (datetime.now(UTC) - started_at).total_seconds(),
             )
 
